@@ -33271,17 +33271,17 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
     const authenticationSection =
       this.testUserEmail && this.testUserPassword
         ? `## Authentication Available:
-Test user credentials are available via environment variables:
-- \`process.env.TEST_USER_EMAIL\` = "${this.testUserEmail}"
-- \`process.env.TEST_USER_PASSWORD\` = "[PROTECTED]"
+✅ **CREDENTIALS ARE PROVIDED** - Test user credentials are available via environment variables:
+- \`process.env.TEST_USER_EMAIL\` contains the test user email
+- \`process.env.TEST_USER_PASSWORD\` contains the test user password
 
-**Important**: If the preview URLs require authentication, include login steps in your tests. However, FIRST check if the user is already logged in before attempting to login.
+**CRITICAL**: You MUST use these credentials when authentication is required. Do NOT say "no credentials provided" - they are available in the environment.
 
 **Login Detection Logic**:
 1. First navigate to the main page/dashboard
 2. Check if the user is already logged in by looking for dashboard elements, user profile, or authenticated UI
 3. If already logged in, skip the login process
-4. If not logged in, then proceed with the login steps
+4. If not logged in, then proceed with the login steps using the environment variables
 
 **Example with login detection**:
 \`\`\`javascript
@@ -33292,19 +33292,31 @@ await agent.act('Navigate to the main page to check login status');
 const isLoggedIn = await agent.extract('Check if user is already logged in by looking for dashboard elements, user profile, or authenticated UI indicators');
 
 if (!isLoggedIn) {
-  // Only login if not already logged in
+  // Only login if not already logged in - USE THE ENVIRONMENT VARIABLES
   await agent.act('Navigate to the login page');
-  await agent.act('Login with credentials', {
+  await agent.act('Fill in email field with test credentials', {
     data: {
-      email: process.env.TEST_USER_EMAIL,
+      email: process.env.TEST_USER_EMAIL
+    }
+  });
+  await agent.act('Fill in password field with test credentials', {
+    data: {
       password: process.env.TEST_USER_PASSWORD
     }
   });
+  await agent.act('Click login/submit button');
   await agent.act('Wait for successful login and redirect to dashboard');
 } else {
   await agent.act('User is already logged in, proceeding with tests');
 }
 \`\`\`
+
+**CRITICAL REMINDER**: 
+- ✅ CREDENTIALS ARE PROVIDED: process.env.TEST_USER_EMAIL and process.env.TEST_USER_PASSWORD ARE available
+- ✅ The test environment WILL have these environment variables set
+- ✅ Use them when authentication is required - do NOT attempt login without them
+- ❌ NEVER claim "no credentials provided" or "credentials not found" - they ARE available
+- ❌ Do NOT skip authentication steps due to missing credentials - they ARE provided
 
 `
         : `## No Authentication Configured
@@ -33393,7 +33405,7 @@ ${this.testExamples}
     }
 - ${
       this.testUserEmail && this.testUserPassword
-        ? "Authentication credentials are available via environment variables - ALWAYS check if user is already logged in before attempting login"
+        ? "🔑 CREDENTIALS PROVIDED: process.env.TEST_USER_EMAIL and process.env.TEST_USER_PASSWORD are available in the test environment. Use them for authentication. ALWAYS check if user is already logged in before attempting login."
         : "No authentication configured - tests will run without login"
     }
 - Include appropriate waits and assertions
@@ -33420,6 +33432,25 @@ Generate a complete, executable test file:`;
     ) {
       const imports = "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n";
       cleanTestCode = imports + cleanTestCode;
+    }
+
+    // Add environment variable validation for authentication
+    if (this.testUserEmail && this.testUserPassword) {
+      const envCheck = `
+// Verify authentication credentials are available
+console.log('🔑 Authentication credentials check:');
+console.log('TEST_USER_EMAIL available:', !!process.env.TEST_USER_EMAIL);
+console.log('TEST_USER_PASSWORD available:', !!process.env.TEST_USER_PASSWORD);
+if (!process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD) {
+  console.error('❌ Authentication credentials not found in environment variables');
+  process.exit(1);
+}
+
+`;
+      cleanTestCode = cleanTestCode.replace(
+        /(const { startBrowserAgent }[^;]+;[\s\S]*?config\(\);)/,
+        '$1' + envCheck
+      );
     }
 
     const testFilePath = path.join(
@@ -33605,9 +33636,15 @@ Generate a complete, executable test file:`;
     // Parse the output to identify test actions and outcomes
     let loginDetected = false;
     let loginSkipped = false;
+    let credentialsFound = false;
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
+      
+      // Check for credential validation
+      if (line.includes('Authentication credentials check') || line.includes('TEST_USER_EMAIL available') || line.includes('TEST_USER_PASSWORD available')) {
+        credentialsFound = true;
+      }
       
       // Track test actions
       if (line.includes('◆ [act]')) {
@@ -33715,8 +33752,12 @@ Generate a complete, executable test file:`;
     }
     
     // Login detection analysis
-    if (loginDetected || loginSkipped) {
+    if (loginDetected || loginSkipped || credentialsFound) {
       analysis.push(`\n**🔐 Authentication Analysis:**`);
+      
+      if (credentialsFound) {
+        analysis.push(`- ✅ **Credentials verified:** Authentication credentials were found in environment variables`);
+      }
       
       if (loginSkipped) {
         analysis.push(`- ✅ **Smart login detection:** User was already logged in, login steps were skipped`);
@@ -33765,12 +33806,16 @@ Generate a complete, executable test file:`;
     const emoji = testResults.success ? "🎉" : "❌";
     const status = testResults.success ? "PASSED" : "FAILED";
 
-    // Clean up the output by stripping ANSI codes and sanitizing sensitive data
-    const cleanStdout = testResults.stdout ? this.sanitizeOutput(this.stripAnsiCodes(testResults.stdout)) : "No output";
-    const cleanStderr = testResults.stderr ? this.sanitizeOutput(this.stripAnsiCodes(testResults.stderr)) : "";
+    // First strip ANSI codes but don't sanitize yet (agent needs to see actual credentials)
+    const rawStdout = testResults.stdout ? this.stripAnsiCodes(testResults.stdout) : "No output";
+    const rawStderr = testResults.stderr ? this.stripAnsiCodes(testResults.stderr) : "";
 
-    // Parse test results to extract meaningful information
-    const testAnalysis = this.parseTestResults(cleanStdout);
+    // Parse test results using raw output (with credentials visible)
+    const testAnalysis = this.parseTestResults(rawStdout);
+
+    // Now sanitize for display in comments (but not for analysis)
+    const cleanStdout = rawStdout !== "No output" ? this.sanitizeOutput(rawStdout) : "No output";
+    const cleanStderr = rawStderr ? this.sanitizeOutput(rawStderr) : "";
 
     return `## ${emoji} Generated Tests ${status}
 
