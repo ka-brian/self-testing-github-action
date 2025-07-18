@@ -561,6 +561,7 @@ Generate a complete, executable test file:`;
           env: {
             ...process.env,
             NODE_ENV: "test",
+            ANTHROPIC_API_KEY: this.claudeApiKey,
             ...(this.testUserEmail && { TEST_USER_EMAIL: this.testUserEmail }),
             ...(this.testUserPassword && {
               TEST_USER_PASSWORD: this.testUserPassword,
