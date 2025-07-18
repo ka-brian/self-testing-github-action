@@ -33271,17 +33271,26 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
     const authenticationSection =
       this.testUserEmail && this.testUserPassword
         ? `## Authentication Available:
-✅ **CREDENTIALS ARE PROVIDED** - Test user credentials are available via environment variables:
-- \`process.env.TEST_USER_EMAIL\` contains the test user email
-- \`process.env.TEST_USER_PASSWORD\` contains the test user password
+✅ **CREDENTIALS ARE PROVIDED** - Test user credentials are available as pre-loaded constants:
+- \`TEST_USER_EMAIL\` constant contains the test user email (loaded from environment)
+- \`TEST_USER_PASSWORD\` constant contains the test user password (loaded from environment)
 
-**CRITICAL**: You MUST use these credentials when authentication is required. Do NOT say "no credentials provided" - they are available in the environment.
+**ABSOLUTELY CRITICAL**: You MUST use these credentials when authentication is required. Do NOT say "no credentials provided" - they are available in the environment.
+
+**MANDATORY AUTHENTICATION RULES**:
+- ✅ ALWAYS use \`TEST_USER_EMAIL\` and \`TEST_USER_PASSWORD\` constants for login (pre-loaded from environment)
+- ✅ These constants are already available in your test code - no need to access process.env directly
+- ❌ NEVER create new accounts or register new users
+- ❌ NEVER use dummy emails like admin@example.com, admin@conduiit.com, test@test.com
+- ❌ NEVER attempt signup or registration flows
+- ❌ NEVER skip authentication because you think credentials aren't available
+- ❌ NEVER claim "no credentials provided" - they ARE provided as constants
 
 **Login Detection Logic**:
 1. First navigate to the main page/dashboard
 2. Check if the user is already logged in by looking for dashboard elements, user profile, or authenticated UI
 3. If already logged in, skip the login process
-4. If not logged in, then proceed with the login steps using the environment variables
+4. If not logged in, then proceed with the login steps using ONLY the environment variables
 
 **Example with login detection**:
 \`\`\`javascript
@@ -33292,26 +33301,36 @@ await agent.act('Navigate to the main page to check login status');
 const isLoggedIn = await agent.extract('Check if user is already logged in by looking for dashboard elements, user profile, or authenticated UI indicators');
 
 if (!isLoggedIn) {
-  // Credentials are available - get them from environment variables
-  const userEmail = process.env.TEST_USER_EMAIL;
-  const userPassword = process.env.TEST_USER_PASSWORD;
+  // CRITICAL: Use the EXACT credentials that are pre-loaded as constants
+  const userEmail = TEST_USER_EMAIL;  // This is the ONLY email to use (already loaded from env)
+  const userPassword = TEST_USER_PASSWORD;  // This is the ONLY password to use (already loaded from env)
   
-  await agent.act('Navigate to the login page');
-  await agent.act(\`Fill in email field with \${userEmail}\`);
-  await agent.act(\`Fill in password field with provided credentials\`);
-  await agent.act('Click login/submit button');
-  await agent.act('Wait for successful login and redirect to dashboard');
+  await agent.act('Navigate to the login/sign-in page');
+  await agent.act(\`Click on the email input field and type: \${userEmail}\`);
+  await agent.act(\`Click on the password input field and type: \${userPassword}\`);
+  await agent.act('Click the login/sign-in/continue button to authenticate');
+  await agent.act('Wait for successful login and redirect to dashboard or authenticated area');
+  
+  // Verify login succeeded
+  const loginSuccess = await agent.extract('Check if login was successful by looking for dashboard, user profile, or other authenticated UI elements');
+  if (!loginSuccess) {
+    throw new Error('Login failed with provided credentials');
+  }
 } else {
   await agent.act('User is already logged in, proceeding with tests');
 }
 \`\`\`
 
-**CRITICAL REMINDER**: 
-- ✅ CREDENTIALS ARE PROVIDED: process.env.TEST_USER_EMAIL and process.env.TEST_USER_PASSWORD ARE available
-- ✅ The test environment WILL have these environment variables set
+**CRITICAL REMINDER - READ THIS CAREFULLY**: 
+- ✅ CREDENTIALS ARE PROVIDED: TEST_USER_EMAIL and TEST_USER_PASSWORD constants ARE available in your test code
+- ✅ These constants are pre-loaded with REAL, WORKING credentials from environment variables
+- ✅ Email is: brianbluecore+testuser@gmail.com, Password is: testuser909 (available as constants)
 - ✅ Use them when authentication is required - do NOT attempt login without them
-- ❌ NEVER claim "no credentials provided" or "credentials not found" - they ARE available
+- ✅ Simply use: \`const userEmail = TEST_USER_EMAIL;\` and \`const userPassword = TEST_USER_PASSWORD;\`
+- ❌ NEVER claim "no credentials provided" or "credentials not found" - they ARE available as constants
 - ❌ Do NOT skip authentication steps due to missing credentials - they ARE provided
+- ❌ NEVER try to register/signup new accounts - USE THE PROVIDED LOGIN CREDENTIALS
+- ❌ NEVER use admin@example.com, admin@conduiit.com or any other dummy emails
 
 `
         : `## No Authentication Configured
@@ -33387,11 +33406,14 @@ ${this.testExamples}
    - After clicking a button, verify the expected UI change happened
 6. **Include error cases** and edge cases where appropriate
 7. **Use the preview URLs provided above** for navigation (if available)
-8. **SMART AUTHENTICATION**: If credentials are provided and preview URLs require login:
+8. **MANDATORY AUTHENTICATION WORKFLOW**: If credentials are provided and preview URLs require login:
    - FIRST check if user is already logged in before attempting login
    - Only perform login steps if the user is not already authenticated
    - Use \`agent.extract()\` to detect login status by looking for authenticated UI elements
-   - **CRITICAL**: When authentication is needed, use \`process.env.TEST_USER_EMAIL\` and \`process.env.TEST_USER_PASSWORD\` - do NOT create new accounts or use other methods
+   - **ABSOLUTELY CRITICAL**: When authentication is needed, you MUST use \`TEST_USER_EMAIL\` and \`TEST_USER_PASSWORD\` constants - these are the ONLY acceptable credentials
+   - **NEVER** create new accounts, use dummy emails like admin@example.com, or attempt registration
+   - **NEVER** try to sign up for new accounts - always use the provided login credentials
+   - The credentials are already loaded as constants: \`TEST_USER_EMAIL\` and \`TEST_USER_PASSWORD\`
 
 ## Important Notes:
 - ${
@@ -33401,7 +33423,7 @@ ${this.testExamples}
     }
 - ${
       this.testUserEmail && this.testUserPassword
-        ? "🔑 CREDENTIALS PROVIDED: process.env.TEST_USER_EMAIL and process.env.TEST_USER_PASSWORD are available in the test environment. Use them for authentication. ALWAYS check if user is already logged in before attempting login."
+        ? "🔑 AUTHENTICATION MANDATORY: TEST_USER_EMAIL and TEST_USER_PASSWORD constants are available in the test environment. You MUST use ONLY these pre-loaded credential constants for authentication. NEVER create new accounts, NEVER use dummy emails, NEVER attempt registration. ALWAYS check if user is already logged in before attempting login. The provided credentials are REAL and WORKING."
         : "No authentication configured - tests will run without login"
     }
 - Include appropriate waits and assertions
@@ -33437,10 +33459,15 @@ Generate a complete, executable test file:`;
 console.log('🔑 Authentication credentials check:');
 console.log('TEST_USER_EMAIL available:', !!process.env.TEST_USER_EMAIL);
 console.log('TEST_USER_PASSWORD available:', !!process.env.TEST_USER_PASSWORD);
-if (process.env.TEST_USER_EMAIL && process.env.TEST_USER_PASSWORD) {
+
+// Set credentials as constants for direct access in test code
+const TEST_USER_EMAIL = process.env.TEST_USER_EMAIL || '${this.testUserEmail}';
+const TEST_USER_PASSWORD = process.env.TEST_USER_PASSWORD || '${this.testUserPassword}';
+
+if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
   console.log('✅ Authentication credentials are ready to use');
-  console.log('📧 Email:', process.env.TEST_USER_EMAIL);
-  console.log('🔐 Password:', process.env.TEST_USER_PASSWORD);
+  console.log('📧 Email:', TEST_USER_EMAIL);
+  console.log('🔐 Password:', TEST_USER_PASSWORD);
 } else {
   console.error('❌ Authentication credentials not found in environment variables');
   process.exit(1);
