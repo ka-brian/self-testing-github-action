@@ -33275,17 +33275,35 @@ Test user credentials are available via environment variables:
 - \`process.env.TEST_USER_EMAIL\` = "${this.testUserEmail}"
 - \`process.env.TEST_USER_PASSWORD\` = "[PROTECTED]"
 
-**Important**: If the preview URLs require authentication, include login steps in your tests. For example:
+**Important**: If the preview URLs require authentication, include login steps in your tests. However, FIRST check if the user is already logged in before attempting to login.
+
+**Login Detection Logic**:
+1. First navigate to the main page/dashboard
+2. Check if the user is already logged in by looking for dashboard elements, user profile, or authenticated UI
+3. If already logged in, skip the login process
+4. If not logged in, then proceed with the login steps
+
+**Example with login detection**:
 \`\`\`javascript
-// Navigate to login page and authenticate
-await agent.act('Navigate to the login page');
-await agent.act('Login with credentials', {
-  data: {
-    email: process.env.TEST_USER_EMAIL,
-    password: process.env.TEST_USER_PASSWORD
-  }
-});
-await agent.act('Wait for successful login and redirect to dashboard');
+// First check if user is already logged in
+await agent.act('Navigate to the main page to check login status');
+
+// Try to detect if already logged in by looking for authenticated elements
+const isLoggedIn = await agent.extract('Check if user is already logged in by looking for dashboard elements, user profile, or authenticated UI indicators');
+
+if (!isLoggedIn) {
+  // Only login if not already logged in
+  await agent.act('Navigate to the login page');
+  await agent.act('Login with credentials', {
+    data: {
+      email: process.env.TEST_USER_EMAIL,
+      password: process.env.TEST_USER_PASSWORD
+    }
+  });
+  await agent.act('Wait for successful login and redirect to dashboard');
+} else {
+  await agent.act('User is already logged in, proceeding with tests');
+}
 \`\`\`
 
 `
@@ -33362,7 +33380,10 @@ ${this.testExamples}
    - After clicking a button, verify the expected UI change happened
 6. **Include error cases** and edge cases where appropriate
 7. **Use the preview URLs provided above** for navigation (if available)
-8. **Include authentication steps** if credentials are provided and preview URLs require login
+8. **SMART AUTHENTICATION**: If credentials are provided and preview URLs require login:
+   - FIRST check if user is already logged in before attempting login
+   - Only perform login steps if the user is not already authenticated
+   - Use \`agent.extract()\` to detect login status by looking for authenticated UI elements
 
 ## Important Notes:
 - ${
@@ -33372,7 +33393,7 @@ ${this.testExamples}
     }
 - ${
       this.testUserEmail && this.testUserPassword
-        ? "Authentication credentials are available via environment variables - use them if preview URLs require login"
+        ? "Authentication credentials are available via environment variables - ALWAYS check if user is already logged in before attempting login"
         : "No authentication configured - tests will run without login"
     }
 - Include appropriate waits and assertions
@@ -33582,6 +33603,9 @@ Generate a complete, executable test file:`;
     let extractedData = [];
 
     // Parse the output to identify test actions and outcomes
+    let loginDetected = false;
+    let loginSkipped = false;
+    
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
@@ -33593,6 +33617,16 @@ Generate a complete, executable test file:`;
         // Check if this is a sorting test
         if (action.toLowerCase().includes('sort') || action.toLowerCase().includes('column header')) {
           sortingTest = true;
+        }
+        
+        // Check for login detection
+        if (action.toLowerCase().includes('check login') || action.toLowerCase().includes('already logged in')) {
+          loginDetected = true;
+        }
+        
+        // Check for login skip
+        if (action.toLowerCase().includes('already logged in, proceeding') || action.toLowerCase().includes('user is already logged in')) {
+          loginSkipped = true;
         }
       }
       
@@ -33677,6 +33711,29 @@ Generate a complete, executable test file:`;
         analysis.push(`- ✅ **Sorting Result:** Sorting functionality appears to be working correctly`);
       } else {
         analysis.push(`- ⚠️ **Sorting Result:** Could not definitively verify sorting behavior from output`);
+      }
+    }
+    
+    // Login detection analysis
+    if (loginDetected || loginSkipped) {
+      analysis.push(`\n**🔐 Authentication Analysis:**`);
+      
+      if (loginSkipped) {
+        analysis.push(`- ✅ **Smart login detection:** User was already logged in, login steps were skipped`);
+        analysis.push(`- ⚡ **Efficiency:** Test avoided unnecessary login attempts`);
+      } else if (loginDetected) {
+        analysis.push(`- 🔍 **Login detection:** Test checked for existing login state`);
+        
+        // Check if login was actually performed
+        const loginActions = actions.filter(action => 
+          action.toLowerCase().includes('login') || 
+          action.toLowerCase().includes('sign in') ||
+          action.toLowerCase().includes('authenticate')
+        );
+        
+        if (loginActions.length > 0) {
+          analysis.push(`- 🔑 **Login performed:** Found ${loginActions.length} login-related actions`);
+        }
       }
     }
     
