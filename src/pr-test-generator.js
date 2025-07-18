@@ -675,10 +675,19 @@ Generate a complete, executable test file:`;
     });
   }
 
+  stripAnsiCodes(text) {
+    // Remove ANSI escape codes (colors, formatting, etc.)
+    return text.replace(/\u001b\[[0-9;]*m/g, '');
+  }
+
   formatResultsComment(testResults) {
     const timestamp = new Date().toISOString();
     const emoji = testResults.success ? "🎉" : "❌";
     const status = testResults.success ? "PASSED" : "FAILED";
+
+    // Clean up the output by stripping ANSI codes
+    const cleanStdout = testResults.stdout ? this.stripAnsiCodes(testResults.stdout) : "No output";
+    const cleanStderr = testResults.stderr ? this.stripAnsiCodes(testResults.stderr) : "";
 
     return `## ${emoji} Generated Tests ${status}
 
@@ -686,11 +695,11 @@ Generate a complete, executable test file:`;
 
 ### Test Results:
 \`\`\`
-${testResults.stdout || "No output"}
+${cleanStdout}
 \`\`\`
 
 ${
-  testResults.stderr ? `### Errors:\n\`\`\`\n${testResults.stderr}\n\`\`\`` : ""
+  cleanStderr ? `### Errors:\n\`\`\`\n${cleanStderr}\n\`\`\`` : ""
 }
 
 ### Test File:
