@@ -787,13 +787,27 @@ Please check the action logs for more details.
         await execAsync("npm init -y", { cwd: this.outputDir });
       }
 
-      await execAsync("npm install magnitude-core dotenv", { cwd: this.outputDir });
+      await execAsync("npm install magnitude-core dotenv playwright", { cwd: this.outputDir });
       core.info("✅ Magnitude and dependencies installed");
       
       // Install Playwright browsers
       core.info("🌐 Installing Playwright browsers...");
-      await execAsync("npx playwright install", { cwd: this.outputDir });
-      core.info("✅ Playwright browsers installed");
+      try {
+        await execAsync("npx playwright install --with-deps", { 
+          cwd: this.outputDir,
+          timeout: 300000 // 5 minutes timeout for browser downloads
+        });
+        core.info("✅ Playwright browsers installed");
+      } catch (error) {
+        core.warning(`Playwright install failed: ${error.message}`);
+        // Try alternative installation method
+        core.info("🔄 Trying alternative Playwright installation...");
+        await execAsync("npx playwright install chromium --with-deps", { 
+          cwd: this.outputDir,
+          timeout: 300000
+        });
+        core.info("✅ Playwright Chromium installed");
+      }
     }
   }
 }
