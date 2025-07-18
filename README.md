@@ -39,6 +39,10 @@ In your repository settings, add:
 
 - `CLAUDE_API_KEY`: Your Claude API key from [Anthropic Console](https://console.anthropic.com/)
 
+**Optional secrets for authentication:**
+- `TEST_USER_EMAIL`: Email for test user authentication (if preview URLs require login)
+- `TEST_USER_PASSWORD`: Password for test user authentication (if preview URLs require login)
+
 ### 3. Open a Pull Request
 
 The action will automatically:
@@ -71,14 +75,18 @@ The action will add a comment to your PR like this:
 
 ### Inputs
 
-| Input            | Description                          | Required | Default                   |
-| ---------------- | ------------------------------------ | -------- | ------------------------- |
-| `claude-api-key` | Claude API key from Anthropic        | ✅       | -                         |
-| `github-token`   | GitHub token for API access          | ❌       | `${{ github.token }}`     |
-| `test-examples`  | Custom test examples to guide Claude | ❌       | Built-in examples         |
-| `output-dir`     | Directory for generated test files   | ❌       | `.github/generated-tests` |
-| `timeout`        | Test execution timeout (seconds)     | ❌       | `120`                     |
-| `comment-on-pr`  | Whether to comment results on PR     | ❌       | `true`                    |
+| Input               | Description                                        | Required | Default                   |
+| ------------------- | -------------------------------------------------- | -------- | ------------------------- |
+| `claude-api-key`    | Claude API key from Anthropic                      | ✅       | -                         |
+| `github-token`      | GitHub token for API access                       | ❌       | `${{ github.token }}`     |
+| `test-examples`     | Custom test examples to guide Claude              | ❌       | Built-in examples         |
+| `output-dir`        | Directory for generated test files                | ❌       | `.github/generated-tests` |
+| `timeout`           | Test execution timeout (seconds)                  | ❌       | `120`                     |
+| `comment-on-pr`     | Whether to comment results on PR                  | ❌       | `true`                    |
+| `wait-for-preview`  | Wait for preview URLs to appear in PR comments (seconds) | ❌       | `60`                      |
+| `base-url`          | Base URL to use for tests (overrides preview URL detection) | ❌       | -                         |
+| `test-user-email`   | Email for test user authentication (if preview requires login) | ❌       | -                         |
+| `test-user-password` | Password for test user authentication (if preview requires login) | ❌       | -                         |
 
 ### Outputs
 
@@ -115,6 +123,13 @@ The action will add a comment to your PR like this:
     timeout: 300
     # Disable PR commenting (use outputs instead)
     comment-on-pr: "false"
+    # Wait longer for preview URLs to appear
+    wait-for-preview: 120
+    # Override preview URL detection with specific base URL
+    base-url: "https://my-staging-env.example.com"
+    # Authentication for preview environments that require login
+    test-user-email: ${{ secrets.TEST_USER_EMAIL }}
+    test-user-password: ${{ secrets.TEST_USER_PASSWORD }}
 ```
 
 ## Setup Requirements
@@ -134,6 +149,22 @@ The action needs access to:
 - Execute tests in the GitHub Actions environment
 
 This is handled automatically by the default `GITHUB_TOKEN`.
+
+### Preview URLs and Authentication
+
+The action can automatically detect preview URLs from PR comments (Vercel, Netlify, Railway, etc.) and use them for testing. If your preview environments require authentication, you can configure test credentials:
+
+1. **Automatic Detection**: The action scans PR comments for preview URLs
+2. **Manual Override**: Use `base-url` input to specify a custom URL
+3. **Authentication**: Set `test-user-email` and `test-user-password` for login-protected previews
+4. **Environment Variables**: Tests can access credentials via `process.env.TEST_USER_EMAIL` and `process.env.TEST_USER_PASSWORD`
+
+#### Supported Preview Platforms
+
+- Vercel (*.vercel.app)
+- Netlify (*.netlify.app)
+- Railway (*.railway.app)
+- Custom preview URLs matching pattern `https://preview-*`
 
 ## How It Works
 
@@ -182,10 +213,22 @@ test-examples: |
 
   test('should authenticate user', async (page) => {
     await page.goto('/login');
-    await page.fill('#email', 'test@example.com');
-    await page.fill('#password', 'password123');
+    await page.fill('#email', process.env.TEST_USER_EMAIL);
+    await page.fill('#password', process.env.TEST_USER_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('/dashboard');
+  });
+
+  test('should access protected route', async (page) => {
+    // Login first
+    await page.goto('/login');
+    await page.fill('#email', process.env.TEST_USER_EMAIL);
+    await page.fill('#password', process.env.TEST_USER_PASSWORD);
+    await page.click('button[type="submit"]');
+    
+    // Then test protected functionality
+    await page.goto('/admin');
+    await page.waitForSelector('.admin-dashboard');
   });
 ```
 
