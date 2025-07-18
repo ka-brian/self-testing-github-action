@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: yourusername/pr-test-generator@v1
+      - uses: ka-brian/pr-test-generator@v1
         with:
           claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
 ```
@@ -40,6 +40,7 @@ In your repository settings, add:
 - `CLAUDE_API_KEY`: Your Claude API key from [Anthropic Console](https://console.anthropic.com/)
 
 **Optional secrets for authentication:**
+
 - `TEST_USER_EMAIL`: Email for test user authentication (if preview URLs require login)
 - `TEST_USER_PASSWORD`: Password for test user authentication (if preview URLs require login)
 
@@ -75,17 +76,17 @@ The action will add a comment to your PR like this:
 
 ### Inputs
 
-| Input               | Description                                        | Required | Default                   |
-| ------------------- | -------------------------------------------------- | -------- | ------------------------- |
-| `claude-api-key`    | Claude API key from Anthropic                      | ✅       | -                         |
-| `github-token`      | GitHub token for API access                       | ❌       | `${{ github.token }}`     |
-| `test-examples`     | Custom test examples to guide Claude              | ❌       | Built-in examples         |
-| `output-dir`        | Directory for generated test files                | ❌       | `.github/generated-tests` |
-| `timeout`           | Test execution timeout (seconds)                  | ❌       | `120`                     |
-| `comment-on-pr`     | Whether to comment results on PR                  | ❌       | `true`                    |
-| `wait-for-preview`  | Wait for preview URLs to appear in PR comments (seconds) | ❌       | `60`                      |
-| `base-url`          | Base URL to use for tests (overrides preview URL detection) | ❌       | -                         |
-| `test-user-email`   | Email for test user authentication (if preview requires login) | ❌       | -                         |
+| Input                | Description                                                       | Required | Default                   |
+| -------------------- | ----------------------------------------------------------------- | -------- | ------------------------- |
+| `claude-api-key`     | Claude API key from Anthropic                                     | ✅       | -                         |
+| `github-token`       | GitHub token for API access                                       | ❌       | `${{ github.token }}`     |
+| `test-examples`      | Custom test examples to guide Claude                              | ❌       | Built-in examples         |
+| `output-dir`         | Directory for generated test files                                | ❌       | `.github/generated-tests` |
+| `timeout`            | Test execution timeout (seconds)                                  | ❌       | `120`                     |
+| `comment-on-pr`      | Whether to comment results on PR                                  | ❌       | `true`                    |
+| `wait-for-preview`   | Wait for preview URLs to appear in PR comments (seconds)          | ❌       | `60`                      |
+| `base-url`           | Base URL to use for tests (overrides preview URL detection)       | ❌       | -                         |
+| `test-user-email`    | Email for test user authentication (if preview requires login)    | ❌       | -                         |
 | `test-user-password` | Password for test user authentication (if preview requires login) | ❌       | -                         |
 
 ### Outputs
@@ -161,9 +162,9 @@ The action can automatically detect preview URLs from PR comments (Vercel, Netli
 
 #### Supported Preview Platforms
 
-- Vercel (*.vercel.app)
-- Netlify (*.netlify.app)
-- Railway (*.railway.app)
+- Vercel (\*.vercel.app)
+- Netlify (\*.netlify.app)
+- Railway (\*.railway.app)
 - Custom preview URLs matching pattern `https://preview-*`
 
 ## How It Works
