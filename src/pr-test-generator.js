@@ -509,18 +509,13 @@ await agent.act('Navigate to the main page to check login status');
 const isLoggedIn = await agent.extract('Check if user is already logged in by looking for dashboard elements, user profile, or authenticated UI indicators');
 
 if (!isLoggedIn) {
-  // Only login if not already logged in - USE THE ENVIRONMENT VARIABLES
+  // Credentials are available - get them from environment variables
+  const userEmail = process.env.TEST_USER_EMAIL;
+  const userPassword = process.env.TEST_USER_PASSWORD;
+  
   await agent.act('Navigate to the login page');
-  await agent.act('Fill in email field with test credentials', {
-    data: {
-      email: process.env.TEST_USER_EMAIL
-    }
-  });
-  await agent.act('Fill in password field with test credentials', {
-    data: {
-      password: process.env.TEST_USER_PASSWORD
-    }
-  });
+  await agent.act(\`Fill in email field with \${userEmail}\`);
+  await agent.act(\`Fill in password field with provided credentials\`);
   await agent.act('Click login/submit button');
   await agent.act('Wait for successful login and redirect to dashboard');
 } else {
@@ -613,6 +608,7 @@ ${this.testExamples}
    - FIRST check if user is already logged in before attempting login
    - Only perform login steps if the user is not already authenticated
    - Use \`agent.extract()\` to detect login status by looking for authenticated UI elements
+   - **CRITICAL**: When authentication is needed, use \`process.env.TEST_USER_EMAIL\` and \`process.env.TEST_USER_PASSWORD\` - do NOT create new accounts or use other methods
 
 ## Important Notes:
 - ${
@@ -658,7 +654,11 @@ Generate a complete, executable test file:`;
 console.log('🔑 Authentication credentials check:');
 console.log('TEST_USER_EMAIL available:', !!process.env.TEST_USER_EMAIL);
 console.log('TEST_USER_PASSWORD available:', !!process.env.TEST_USER_PASSWORD);
-if (!process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD) {
+if (process.env.TEST_USER_EMAIL && process.env.TEST_USER_PASSWORD) {
+  console.log('✅ Authentication credentials are ready to use');
+  console.log('📧 Email:', process.env.TEST_USER_EMAIL);
+  console.log('🔐 Password: [AVAILABLE]');
+} else {
   console.error('❌ Authentication credentials not found in environment variables');
   process.exit(1);
 }
