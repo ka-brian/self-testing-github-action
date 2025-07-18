@@ -106,6 +106,7 @@ The action will add a comment to your PR like this:
     # Custom test examples for your project
     test-examples: |
       const { startBrowserAgent } = require('magnitude-core');
+      require('dotenv').config();
       
       async function runTests() {
         const agent = await startBrowserAgent({
@@ -227,6 +228,7 @@ with:
 test-examples: |
   // Your actual test patterns
   const { startBrowserAgent } = require('magnitude-core');
+  require('dotenv').config();
   
   async function runTests() {
     const agent = await startBrowserAgent({

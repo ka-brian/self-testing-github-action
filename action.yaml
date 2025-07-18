@@ -20,6 +20,7 @@ inputs:
     default: |
       // Example Magnitude tests:
       const { startBrowserAgent } = require('magnitude-core');
+      require('dotenv').config();
       
       async function runTests() {
         const agent = await startBrowserAgent({

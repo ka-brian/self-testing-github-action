@@ -32815,7 +32815,7 @@ class PRTestGenerator {
       const prContext = await this.getPRContext();
 
       // Check if UI testing is needed
-      const requiresUITesting = this.requiresUITesting(prContext);
+      const requiresUITesting = await this.requiresUITesting(prContext);
 
       if (!requiresUITesting) {
         core.info("🚀 No UI changes detected - skipping UI tests");
@@ -32892,108 +32892,108 @@ class PRTestGenerator {
     }
   }
 
-  requiresUITesting(prContext) {
-    // UI-related file patterns
+  async requiresUITesting(prContext) {
+    core.info("🤖 Analyzing PR changes to determine if UI testing is needed...");
+
+    // Use Claude to analyze the changes
+    const prompt = `Analyze the following Pull Request changes and determine if UI testing is necessary.
+
+## PR Details:
+- **Title**: ${prContext.pr.title}
+- **Description**: ${prContext.pr.body || "No description provided"}
+
+## Changed Files:
+${prContext.files.map(file => `
+### ${file.filename} (${file.status})
+**Changes**: +${file.additions} -${file.deletions}
+\`\`\`diff
+${file.patch ? file.patch.slice(0, 1000) : "No patch available"}${file.patch && file.patch.length > 1000 ? "\n...(truncated)" : ""}
+\`\`\`
+`).join("\n")}
+
+## Instructions:
+Determine if this PR requires UI testing by analyzing:
+1. Are there changes to user-facing features, components, or interfaces?
+2. Are there changes to styling, layouts, or visual elements?
+3. Are there changes to user interactions, forms, or navigation?
+4. Are there changes that could affect what users see or how they interact with the application?
+
+Backend-only changes (APIs, databases, configurations, CI/CD, documentation) typically don't require UI testing.
+
+Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not needed. Do not include any explanation.`;
+
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.claudeApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-3-haiku-20240307", // Use smaller, faster model
+          max_tokens: 10,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        core.warning(`Claude API request failed: ${response.status}`);
+        // Fallback to basic pattern matching
+        return this.fallbackUIDetection(prContext);
+      }
+
+      const data = await response.json();
+      const result = data.content[0].text.trim().toUpperCase();
+      
+      if (result === "YES") {
+        core.info("🎨 UI changes detected - will run UI tests");
+        return true;
+      } else if (result === "NO") {
+        core.info("🔧 No UI changes detected - will skip UI tests");
+        return false;
+      } else {
+        core.warning(`Unexpected Claude response: ${result}`);
+        // Fallback to basic pattern matching
+        return this.fallbackUIDetection(prContext);
+      }
+    } catch (error) {
+      core.warning(`Error analyzing PR with Claude: ${error.message}`);
+      // Fallback to basic pattern matching
+      return this.fallbackUIDetection(prContext);
+    }
+  }
+
+  fallbackUIDetection(prContext) {
+    core.info("🔍 Using fallback UI detection...");
+    
+    // Basic file pattern matching as fallback
     const uiFilePatterns = [
-      // Frontend files
       /\.(jsx?|tsx?|vue|svelte)$/,
-      // Style files
-      /\.(css|scss|sass|less|styl)$/,
-      // HTML files
-      /\.html?$/,
-      // Component directories
-      /components?\//,
-      /pages?\//,
-      /views?\//,
-      /layouts?\//,
-      // UI-related directories
-      /styles?\//,
-      /assets?\//,
-      /public\//,
-      // Framework-specific
-      /next\//,
-      /nuxt\//,
-      /gatsby\//,
-      /react\//,
-      /vue\//,
-      /angular\//,
+      /\.(css|scss|sass|less|stylus)$/,
+      /\.(html|htm|ejs|hbs|pug|jade)$/,
+      /\/components?\//,
+      /\/pages?\//,
+      /\/views?\//,
+      /\/styles?\//,
     ];
 
-    // Keywords in PR title/body that suggest UI changes
-    const uiKeywords = [
-      "ui",
-      "frontend",
-      "component",
-      "page",
-      "view",
-      "layout",
-      "style",
-      "css",
-      "design",
-      "visual",
-      "interface",
-      "button",
-      "form",
-      "modal",
-      "navbar",
-      "sidebar",
-      "header",
-      "footer",
-      "menu",
-      "responsive",
-      "mobile",
-      "desktop",
-      "theme",
-      "color",
-      "font",
-      "animation",
-      "transition",
-      "hover",
-      "click",
-      "user experience",
-      "ux",
-    ];
-
-    // Check if any changed files match UI patterns
     const hasUIFiles = prContext.files.some((file) =>
       uiFilePatterns.some((pattern) => pattern.test(file.filename))
     );
 
-    // Check if PR title or body contains UI keywords
-    const prText = `${prContext.pr.title} ${
-      prContext.pr.body || ""
-    }`.toLowerCase();
-    const hasUIKeywords = uiKeywords.some((keyword) =>
-      prText.includes(keyword)
-    );
-
-    // Check if patches contain UI-related changes
-    const hasUIPatches = prContext.files.some((file) => {
-      if (!file.patch) return false;
-      const patch = file.patch.toLowerCase();
-      return (
-        uiKeywords.some((keyword) => patch.includes(keyword)) ||
-        // Check for common UI-related code patterns
-        patch.includes("classname") ||
-        patch.includes("style=") ||
-        patch.includes("onclick") ||
-        patch.includes("onchange") ||
-        patch.includes("render") ||
-        patch.includes("component") ||
-        patch.includes("jsx") ||
-        patch.includes("tsx")
-      );
-    });
-
-    const requiresUI = hasUIFiles || hasUIKeywords || hasUIPatches;
-
-    if (requiresUI) {
-      core.info("🎨 UI changes detected - will run UI tests");
+    if (hasUIFiles) {
+      core.info("🎨 UI files detected - will run UI tests");
     } else {
-      core.info("🔧 No UI changes detected - will skip UI tests");
+      core.info("🔧 No UI files detected - will skip UI tests");
     }
 
-    return requiresUI;
+    return hasUIFiles;
   }
 
   async getPRContext() {
@@ -33316,7 +33316,7 @@ Generate a complete, executable test file:`;
       !cleanTestCode.includes("import") &&
       !cleanTestCode.includes("require")
     ) {
-      const imports = "const { startBrowserAgent } = require('magnitude-core');\n\n";
+      const imports = "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n";
       cleanTestCode = imports + cleanTestCode;
     }
 
@@ -33493,8 +33493,8 @@ Please check the action logs for more details.
         await execAsync("npm init -y", { cwd: this.outputDir });
       }
 
-      await execAsync("npm install magnitude-core", { cwd: this.outputDir });
-      core.info("✅ Magnitude installed");
+      await execAsync("npm install magnitude-core dotenv", { cwd: this.outputDir });
+      core.info("✅ Magnitude and dependencies installed");
       
       // Install Playwright browsers
       core.info("🌐 Installing Playwright browsers...");
