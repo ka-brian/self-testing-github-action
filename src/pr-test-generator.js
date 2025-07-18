@@ -657,7 +657,7 @@ console.log('TEST_USER_PASSWORD available:', !!process.env.TEST_USER_PASSWORD);
 if (process.env.TEST_USER_EMAIL && process.env.TEST_USER_PASSWORD) {
   console.log('✅ Authentication credentials are ready to use');
   console.log('📧 Email:', process.env.TEST_USER_EMAIL);
-  console.log('🔐 Password: [AVAILABLE]');
+  console.log('🔐 Password:', process.env.TEST_USER_PASSWORD);
 } else {
   console.error('❌ Authentication credentials not found in environment variables');
   process.exit(1);
@@ -782,36 +782,9 @@ if (process.env.TEST_USER_EMAIL && process.env.TEST_USER_PASSWORD) {
     
     let sanitized = text;
     
-    // Sanitize email addresses
-    sanitized = sanitized.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]');
-    
-    // Sanitize usernames/passwords from environment variables
-    if (this.testUserEmail) {
-      sanitized = sanitized.replace(new RegExp(this.testUserEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '[EMAIL_REDACTED]');
-    }
-    if (this.testUserPassword) {
-      sanitized = sanitized.replace(new RegExp(this.testUserPassword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '[PASSWORD_REDACTED]');
-    }
-    
-    // Sanitize API keys
+    // Only sanitize API keys for security
     sanitized = sanitized.replace(/sk-[a-zA-Z0-9]{48}/g, '[API_KEY_REDACTED]');
     sanitized = sanitized.replace(/ANTHROPIC_API_KEY[=:]\s*[^\s]+/gi, 'ANTHROPIC_API_KEY=[API_KEY_REDACTED]');
-    
-    // Sanitize common password patterns
-    sanitized = sanitized.replace(/password[=:]\s*[^\s]+/gi, 'password=[PASSWORD_REDACTED]');
-    sanitized = sanitized.replace(/pwd[=:]\s*[^\s]+/gi, 'pwd=[PASSWORD_REDACTED]');
-    sanitized = sanitized.replace(/passwd[=:]\s*[^\s]+/gi, 'passwd=[PASSWORD_REDACTED]');
-    
-    // Sanitize tokens
-    sanitized = sanitized.replace(/token[=:]\s*[^\s]+/gi, 'token=[TOKEN_REDACTED]');
-    sanitized = sanitized.replace(/bearer\s+[^\s]+/gi, 'bearer [TOKEN_REDACTED]');
-    
-    // Sanitize URLs with credentials
-    sanitized = sanitized.replace(/https?:\/\/[^:\/\s]+:[^@\/\s]+@[^\s]+/gi, '[URL_WITH_CREDENTIALS_REDACTED]');
-    
-    // Sanitize common secret patterns
-    sanitized = sanitized.replace(/secret[=:]\s*[^\s]+/gi, 'secret=[SECRET_REDACTED]');
-    sanitized = sanitized.replace(/key[=:]\s*[^\s]+/gi, 'key=[KEY_REDACTED]');
     
     return sanitized;
   }
