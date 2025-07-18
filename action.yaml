@@ -19,20 +19,24 @@ inputs:
     required: false
     default: |
       // Example Magnitude tests:
-      import { test } from 'magnitude';
+      import { test } from 'magnitude-test';
 
-      test('should navigate to homepage', async (page) => {
-        await page.goto('/');
-        await page.waitForSelector('h1');
-        const title = await page.textContent('h1');
+      test('should navigate to homepage', async (agent) => {
+        await agent.act('Navigate to the homepage');
+        const title = await agent.extract('Get the main heading text');
         expect(title).toBe('Welcome');
       });
 
-      test('should handle form submission', async (page) => {
-        await page.goto('/contact');
-        await page.fill('input[name="email"]', 'test@example.com');
-        await page.click('button[type="submit"]');
-        await page.waitForSelector('.success-message');
+      test('should handle form submission', async (agent) => {
+        await agent.act('Navigate to the contact page');
+        await agent.act('Fill in the contact form', {
+          data: {
+            email: 'test@example.com',
+            message: 'Hello, this is a test message'
+          }
+        });
+        await agent.act('Submit the form');
+        await agent.act('Wait for success message to appear');
       });
   output-dir:
     description: "Directory to save generated test files"

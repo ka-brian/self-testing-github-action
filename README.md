@@ -104,18 +104,18 @@ The action will add a comment to your PR like this:
     claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
     # Custom test examples for your project
     test-examples: |
-      import { test, expect } from 'magnitude';
+      import { test } from 'magnitude-test';
 
-      test('should load dashboard', async (page) => {
-        await page.goto('http://localhost:3000/dashboard');
-        await page.waitForSelector('.dashboard-header');
-        expect(await page.textContent('h1')).toBe('Dashboard');
+      test('should load dashboard', async (agent) => {
+        await agent.act('Navigate to the dashboard page');
+        const heading = await agent.extract('Get the main dashboard heading text');
+        expect(heading).toBe('Dashboard');
       });
 
-      test('should handle user interactions', async (page) => {
-        await page.goto('http://localhost:3000');
-        await page.click('[data-testid="menu-button"]');
-        await page.waitForSelector('.menu-open');
+      test('should handle user interactions', async (agent) => {
+        await agent.act('Navigate to the homepage');
+        await agent.act('Click on the menu button');
+        await agent.act('Wait for the menu to open');
       });
     # Save tests to custom location
     output-dir: "./e2e/generated"
@@ -209,26 +209,32 @@ with:
 # Provide project-specific test patterns
 test-examples: |
   // Your actual test patterns
-  import { test, expect } from 'magnitude';
+  import { test } from 'magnitude-test';
 
-  test('should authenticate user', async (page) => {
-    await page.goto('/login');
-    await page.fill('#email', process.env.TEST_USER_EMAIL);
-    await page.fill('#password', process.env.TEST_USER_PASSWORD);
-    await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+  test('should authenticate user', async (agent) => {
+    await agent.act('Navigate to the login page');
+    await agent.act('Login with credentials', {
+      data: {
+        email: process.env.TEST_USER_EMAIL,
+        password: process.env.TEST_USER_PASSWORD
+      }
+    });
+    await agent.act('Wait for redirect to dashboard');
   });
 
-  test('should access protected route', async (page) => {
+  test('should access protected route', async (agent) => {
     // Login first
-    await page.goto('/login');
-    await page.fill('#email', process.env.TEST_USER_EMAIL);
-    await page.fill('#password', process.env.TEST_USER_PASSWORD);
-    await page.click('button[type="submit"]');
+    await agent.act('Navigate to the login page');
+    await agent.act('Login with credentials', {
+      data: {
+        email: process.env.TEST_USER_EMAIL,
+        password: process.env.TEST_USER_PASSWORD
+      }
+    });
     
     // Then test protected functionality
-    await page.goto('/admin');
-    await page.waitForSelector('.admin-dashboard');
+    await agent.act('Navigate to the admin section');
+    await agent.act('Wait for admin dashboard to load');
   });
 ```
 

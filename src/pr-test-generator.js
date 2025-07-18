@@ -289,16 +289,15 @@ Test user credentials are available via environment variables:
 
 **Important**: If the preview URLs require authentication, include login steps in your tests. For example:
 \`\`\`javascript
-// Navigate to login page
-await page.goto('${prContext.previewUrls[0] || 'http://localhost:3000'}/login');
-
-// Fill in login form
-await page.fill('input[name="email"]', process.env.TEST_USER_EMAIL);
-await page.fill('input[name="password"]', process.env.TEST_USER_PASSWORD);
-await page.click('button[type="submit"]');
-
-// Wait for successful login
-await page.waitForURL('**/dashboard');
+// Navigate to login page and authenticate
+await agent.act('Navigate to the login page');
+await agent.act('Login with credentials', {
+  data: {
+    email: process.env.TEST_USER_EMAIL,
+    password: process.env.TEST_USER_PASSWORD
+  }
+});
+await agent.act('Wait for successful login and redirect to dashboard');
 \`\`\`
 
 `
@@ -406,7 +405,7 @@ Generate a complete, executable test file:`;
       !cleanTestCode.includes("import") &&
       !cleanTestCode.includes("require")
     ) {
-      const imports = "import { test, expect } from 'magnitude';\n\n";
+      const imports = "import { test } from 'magnitude-test';\n\n";
       cleanTestCode = imports + cleanTestCode;
     }
 
@@ -459,7 +458,7 @@ Generate a complete, executable test file:`;
 
   async ensureMagnitudeInstalled() {
     try {
-      await execAsync("npm list magnitude", { cwd: this.outputDir });
+      await execAsync("npm list magnitude-test", { cwd: this.outputDir });
       core.debug("✅ Magnitude already installed");
     } catch (error) {
       core.info("📦 Installing Magnitude...");
@@ -471,7 +470,7 @@ Generate a complete, executable test file:`;
         await execAsync("npm init -y", { cwd: this.outputDir });
       }
 
-      await execAsync("npm install magnitude", { cwd: this.outputDir });
+      await execAsync("npm install magnitude-test", { cwd: this.outputDir });
       core.info("✅ Magnitude installed");
     }
   }
