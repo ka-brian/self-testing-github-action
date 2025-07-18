@@ -32816,19 +32816,23 @@ class PRTestGenerator {
 
       // Check if UI testing is needed
       const requiresUITesting = this.requiresUITesting(prContext);
-      
+
       if (!requiresUITesting) {
         core.info("🚀 No UI changes detected - skipping UI tests");
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-        
+
         if (this.commentOnPR) {
           await this.commentSkippedTests();
         }
-        
+
         return {
           success: true,
           testFilePath: null,
-          results: { success: true, skipped: true, reason: "No UI changes detected" },
+          results: {
+            success: true,
+            skipped: true,
+            reason: "No UI changes detected",
+          },
           duration,
         };
       }
@@ -32917,40 +32921,72 @@ class PRTestGenerator {
 
     // Keywords in PR title/body that suggest UI changes
     const uiKeywords = [
-      'ui', 'frontend', 'component', 'page', 'view', 'layout', 'style',
-      'css', 'design', 'visual', 'interface', 'button', 'form', 'modal',
-      'navbar', 'sidebar', 'header', 'footer', 'menu', 'responsive',
-      'mobile', 'desktop', 'theme', 'color', 'font', 'animation',
-      'transition', 'hover', 'click', 'user experience', 'ux'
+      "ui",
+      "frontend",
+      "component",
+      "page",
+      "view",
+      "layout",
+      "style",
+      "css",
+      "design",
+      "visual",
+      "interface",
+      "button",
+      "form",
+      "modal",
+      "navbar",
+      "sidebar",
+      "header",
+      "footer",
+      "menu",
+      "responsive",
+      "mobile",
+      "desktop",
+      "theme",
+      "color",
+      "font",
+      "animation",
+      "transition",
+      "hover",
+      "click",
+      "user experience",
+      "ux",
     ];
 
     // Check if any changed files match UI patterns
-    const hasUIFiles = prContext.files.some(file =>
-      uiFilePatterns.some(pattern => pattern.test(file.filename))
+    const hasUIFiles = prContext.files.some((file) =>
+      uiFilePatterns.some((pattern) => pattern.test(file.filename))
     );
 
     // Check if PR title or body contains UI keywords
-    const prText = `${prContext.pr.title} ${prContext.pr.body || ''}`.toLowerCase();
-    const hasUIKeywords = uiKeywords.some(keyword => prText.includes(keyword));
+    const prText = `${prContext.pr.title} ${
+      prContext.pr.body || ""
+    }`.toLowerCase();
+    const hasUIKeywords = uiKeywords.some((keyword) =>
+      prText.includes(keyword)
+    );
 
     // Check if patches contain UI-related changes
-    const hasUIPatches = prContext.files.some(file => {
+    const hasUIPatches = prContext.files.some((file) => {
       if (!file.patch) return false;
       const patch = file.patch.toLowerCase();
-      return uiKeywords.some(keyword => patch.includes(keyword)) ||
-             // Check for common UI-related code patterns
-             patch.includes('classname') ||
-             patch.includes('style=') ||
-             patch.includes('onclick') ||
-             patch.includes('onchange') ||
-             patch.includes('render') ||
-             patch.includes('component') ||
-             patch.includes('jsx') ||
-             patch.includes('tsx');
+      return (
+        uiKeywords.some((keyword) => patch.includes(keyword)) ||
+        // Check for common UI-related code patterns
+        patch.includes("classname") ||
+        patch.includes("style=") ||
+        patch.includes("onclick") ||
+        patch.includes("onchange") ||
+        patch.includes("render") ||
+        patch.includes("component") ||
+        patch.includes("jsx") ||
+        patch.includes("tsx")
+      );
     });
 
     const requiresUI = hasUIFiles || hasUIKeywords || hasUIPatches;
-    
+
     if (requiresUI) {
       core.info("🎨 UI changes detected - will run UI tests");
     } else {
@@ -33155,8 +33191,9 @@ class PRTestGenerator {
       .filter((file) => file.patch) // Only files with actual changes
       .slice(0, 10); // Limit to prevent token overflow
 
-    const authenticationSection = this.testUserEmail && this.testUserPassword
-      ? `## Authentication Available:
+    const authenticationSection =
+      this.testUserEmail && this.testUserPassword
+        ? `## Authentication Available:
 Test user credentials are available via environment variables:
 - \`process.env.TEST_USER_EMAIL\` = "${this.testUserEmail}"
 - \`process.env.TEST_USER_PASSWORD\` = "[PROTECTED]"
@@ -33175,7 +33212,7 @@ await agent.act('Wait for successful login and redirect to dashboard');
 \`\`\`
 
 `
-      : `## No Authentication Configured
+        : `## No Authentication Configured
 Tests will run without authentication. If preview URLs require login, tests may fail.
 
 `;
@@ -33279,13 +33316,13 @@ Generate a complete, executable test file:`;
       !cleanTestCode.includes("import") &&
       !cleanTestCode.includes("require")
     ) {
-      const imports = "import { test } from 'magnitude-core';\n\n";
+      const imports = "const { startBrowserAgent } = require('magnitude-core');\n\n";
       cleanTestCode = imports + cleanTestCode;
     }
 
     const testFilePath = path.join(
       this.outputDir,
-      `pr-${this.prNumber}-tests.mag.ts`
+      `pr-${this.prNumber}-tests.js`
     );
     await fs.writeFile(testFilePath, cleanTestCode);
 
@@ -33295,12 +33332,12 @@ Generate a complete, executable test file:`;
 
   async executeTests(testFilePath) {
     try {
-      // Install magnitude if not already installed
+      // Install magnitude-core if not already installed
       await this.ensureMagnitudeInstalled();
 
-      // Run the test file with timeout
+      // Run the test file directly with Node.js
       const { stdout, stderr } = await execAsync(
-        `npx magnitude ${path.basename(testFilePath)}`,
+        `node ${path.basename(testFilePath)}`,
         {
           timeout: this.timeout,
           cwd: this.outputDir,
@@ -33308,7 +33345,9 @@ Generate a complete, executable test file:`;
             ...process.env,
             NODE_ENV: "test",
             ...(this.testUserEmail && { TEST_USER_EMAIL: this.testUserEmail }),
-            ...(this.testUserPassword && { TEST_USER_PASSWORD: this.testUserPassword }),
+            ...(this.testUserPassword && {
+              TEST_USER_PASSWORD: this.testUserPassword,
+            }),
           },
         }
       );
@@ -33327,25 +33366,6 @@ Generate a complete, executable test file:`;
         stderr: error.stderr || "",
         testFilePath,
       };
-    }
-  }
-
-  async ensureMagnitudeInstalled() {
-    try {
-      await execAsync("npm list magnitude-core", { cwd: this.outputDir });
-      core.debug("✅ Magnitude already installed");
-    } catch (error) {
-      core.info("📦 Installing Magnitude...");
-
-      // Create package.json if it doesn't exist
-      try {
-        await fs.access(path.join(this.outputDir, "package.json"));
-      } catch {
-        await execAsync("npm init -y", { cwd: this.outputDir });
-      }
-
-      await execAsync("npm install magnitude-core", { cwd: this.outputDir });
-      core.info("✅ Magnitude installed");
     }
   }
 
@@ -33396,7 +33416,7 @@ ${
 
   async commentSkippedTests() {
     const timestamp = new Date().toISOString();
-    
+
     try {
       await this.github.issues.createComment({
         owner: this.owner,
@@ -33455,6 +33475,25 @@ Please check the action logs for more details.
       });
     } catch (commentError) {
       core.error(`Failed to comment error: ${commentError.message}`);
+    }
+  }
+
+  async ensureMagnitudeInstalled() {
+    try {
+      await execAsync("npm list magnitude-core", { cwd: this.outputDir });
+      core.debug("✅ Magnitude already installed");
+    } catch (error) {
+      core.info("📦 Installing Magnitude...");
+
+      // Create package.json if it doesn't exist
+      try {
+        await fs.access(path.join(this.outputDir, "package.json"));
+      } catch {
+        await execAsync("npm init -y", { cwd: this.outputDir });
+      }
+
+      await execAsync("npm install magnitude-core", { cwd: this.outputDir });
+      core.info("✅ Magnitude installed");
     }
   }
 }
