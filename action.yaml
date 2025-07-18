@@ -53,6 +53,12 @@ inputs:
   base-url:
     description: "Base URL to use for tests (overrides preview URL detection)"
     required: false
+  test-user-email:
+    description: "Email for test user authentication (if preview requires login)"
+    required: false
+  test-user-password:
+    description: "Password for test user authentication (if preview requires login)"
+    required: false
 
 outputs:
   test-results:

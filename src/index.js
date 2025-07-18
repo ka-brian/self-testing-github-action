@@ -11,6 +11,8 @@ async function run() {
     const outputDir = core.getInput("output-dir");
     const timeout = parseInt(core.getInput("timeout")) * 1000;
     const commentOnPR = core.getInput("comment-on-pr") === "true";
+    const testUserEmail = core.getInput("test-user-email");
+    const testUserPassword = core.getInput("test-user-password");
 
     // Get GitHub context
     const context = github.context;
@@ -31,6 +33,8 @@ async function run() {
       outputDir,
       timeout,
       commentOnPR,
+      testUserEmail,
+      testUserPassword,
     };
 
     core.info(`🚀 Starting test generation for PR #${config.prNumber}`);

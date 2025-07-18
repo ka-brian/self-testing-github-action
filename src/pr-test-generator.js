@@ -20,6 +20,8 @@ class PRTestGenerator {
     this.commentOnPR = config.commentOnPR !== false;
     this.waitForPreview = config.waitForPreview || 60;
     this.baseUrl = config.baseUrl;
+    this.testUserEmail = config.testUserEmail;
+    this.testUserPassword = config.testUserPassword;
   }
 
   async run() {
@@ -279,6 +281,32 @@ class PRTestGenerator {
       .filter((file) => file.patch) // Only files with actual changes
       .slice(0, 10); // Limit to prevent token overflow
 
+    const authenticationSection = this.testUserEmail && this.testUserPassword
+      ? `## Authentication Available:
+Test user credentials are available via environment variables:
+- \`process.env.TEST_USER_EMAIL\` = "${this.testUserEmail}"
+- \`process.env.TEST_USER_PASSWORD\` = "[PROTECTED]"
+
+**Important**: If the preview URLs require authentication, include login steps in your tests. For example:
+\`\`\`javascript
+// Navigate to login page
+await page.goto('${prContext.previewUrls[0] || 'http://localhost:3000'}/login');
+
+// Fill in login form
+await page.fill('input[name="email"]', process.env.TEST_USER_EMAIL);
+await page.fill('input[name="password"]', process.env.TEST_USER_PASSWORD);
+await page.click('button[type="submit"]');
+
+// Wait for successful login
+await page.waitForURL('**/dashboard');
+\`\`\`
+
+`
+      : `## No Authentication Configured
+Tests will run without authentication. If preview URLs require login, tests may fail.
+
+`;
+
     const previewUrlsSection =
       prContext.previewUrls.length > 0
         ? `## Available Preview URLs:
@@ -307,6 +335,8 @@ ${Object.entries(prContext.repoContext)
       }\n\`\`\`\n`
   )
   .join("\n")}
+
+${authenticationSection}
 
 ${previewUrlsSection}
 
@@ -341,12 +371,18 @@ ${this.testExamples}
 4. **Focus on user-facing features** rather than internal implementation
 5. **Include error cases** and edge cases where appropriate
 6. **Use the preview URLs provided above** for navigation (if available)
+7. **Include authentication steps** if credentials are provided and preview URLs require login
 
 ## Important Notes:
 - ${
       prContext.previewUrls.length > 0
         ? `Use the preview URLs: ${prContext.previewUrls[0]} as your base URL`
         : "Use localhost:3000 or relative paths for navigation"
+    }
+- ${
+      this.testUserEmail && this.testUserPassword
+        ? "Authentication credentials are available via environment variables - use them if preview URLs require login"
+        : "No authentication configured - tests will run without login"
     }
 - Include appropriate waits and assertions
 - Test both success and failure scenarios
@@ -398,6 +434,8 @@ Generate a complete, executable test file:`;
           env: {
             ...process.env,
             NODE_ENV: "test",
+            ...(this.testUserEmail && { TEST_USER_EMAIL: this.testUserEmail }),
+            ...(this.testUserPassword && { TEST_USER_PASSWORD: this.testUserPassword }),
           },
         }
       );
