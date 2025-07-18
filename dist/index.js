@@ -32893,8 +32893,12 @@ class PRTestGenerator {
   }
 
   async requiresUITesting(prContext) {
-    core.info("🤖 Analyzing PR changes to determine if UI testing is needed...");
-    core.info(`Files to analyze: ${prContext.files.map(f => f.filename).join(', ')}`);
+    core.info(
+      "🤖 Analyzing PR changes to determine if UI testing is needed..."
+    );
+    core.info(
+      `Files to analyze: ${prContext.files.map((f) => f.filename).join(", ")}`
+    );
 
     // Use Claude to analyze the changes
     const prompt = `Analyze the following Pull Request changes and determine if UI testing is necessary.
@@ -32904,13 +32908,19 @@ class PRTestGenerator {
 - **Description**: ${prContext.pr.body || "No description provided"}
 
 ## Changed Files:
-${prContext.files.map(file => `
+${prContext.files
+  .map(
+    (file) => `
 ### ${file.filename} (${file.status})
 **Changes**: +${file.additions} -${file.deletions}
 \`\`\`diff
-${file.patch ? file.patch.slice(0, 1000) : "No patch available"}${file.patch && file.patch.length > 1000 ? "\n...(truncated)" : ""}
+${file.patch ? file.patch.slice(0, 1000) : "No patch available"}${
+      file.patch && file.patch.length > 1000 ? "\n...(truncated)" : ""
+    }
 \`\`\`
-`).join("\n")}
+`
+  )
+  .join("\n")}
 
 ## UI Testing is REQUIRED for:
 - React/Next.js components (.jsx, .tsx, .js, .ts files in components/, pages/, app/, src/)
@@ -32962,9 +32972,9 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
 
       const data = await response.json();
       const result = data.content[0].text.trim().toUpperCase();
-      
+
       core.info(`Claude AI analysis result: ${result}`);
-      
+
       if (result === "YES") {
         core.info("🎨 UI changes detected by Claude - will run UI tests");
         return true;
@@ -32973,36 +32983,40 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
         const hasObviousUIFiles = prContext.files.some((file) => {
           const filename = file.filename;
           return (
-            filename.includes('component') ||
-            filename.includes('/pages/') ||
-            filename.includes('/app/') ||
-            filename.includes('/src/') ||
-            filename.endsWith('.jsx') ||
-            filename.endsWith('.tsx') ||
-            filename.endsWith('.css') ||
-            filename.endsWith('.scss')
+            filename.includes("component") ||
+            filename.includes("/pages/") ||
+            filename.includes("/app/") ||
+            filename.includes("/src/") ||
+            filename.endsWith(".jsx") ||
+            filename.endsWith(".tsx") ||
+            filename.endsWith(".css") ||
+            filename.endsWith(".scss")
           );
         });
-        
+
         if (hasObviousUIFiles) {
-          core.warning("🔄 Claude said NO but obvious UI files detected - overriding to run UI tests");
-          const uiFiles = prContext.files.filter(f => {
+          core.warning(
+            "🔄 Claude said NO but obvious UI files detected - overriding to run UI tests"
+          );
+          const uiFiles = prContext.files.filter((f) => {
             const filename = f.filename;
             return (
-              filename.includes('component') ||
-              filename.includes('/pages/') ||
-              filename.includes('/app/') ||
-              filename.includes('/src/') ||
-              filename.endsWith('.jsx') ||
-              filename.endsWith('.tsx') ||
-              filename.endsWith('.css') ||
-              filename.endsWith('.scss')
+              filename.includes("component") ||
+              filename.includes("/pages/") ||
+              filename.includes("/app/") ||
+              filename.includes("/src/") ||
+              filename.endsWith(".jsx") ||
+              filename.endsWith(".tsx") ||
+              filename.endsWith(".css") ||
+              filename.endsWith(".scss")
             );
           });
-          core.info(`UI files found: ${uiFiles.map(f => f.filename).join(', ')}`);
+          core.info(
+            `UI files found: ${uiFiles.map((f) => f.filename).join(", ")}`
+          );
           return true;
         }
-        
+
         core.info("🔧 No UI changes detected by Claude - will skip UI tests");
         return false;
       } else {
@@ -33019,10 +33033,12 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
 
   fallbackUIDetection(prContext) {
     core.info("🔍 Using fallback UI detection...");
-    
+
     // Log all changed files for debugging
-    core.info(`Changed files: ${prContext.files.map(f => f.filename).join(', ')}`);
-    
+    core.info(
+      `Changed files: ${prContext.files.map((f) => f.filename).join(", ")}`
+    );
+
     // Comprehensive file pattern matching as fallback
     const uiFilePatterns = [
       // React/Next.js files
@@ -33035,8 +33051,8 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
       // Component directories
       /\/components?\//,
       /\/pages?\//,
-      /\/app\//,  // Next.js app directory
-      /\/src\//,   // Common source directory
+      /\/app\//, // Next.js app directory
+      /\/src\//, // Common source directory
       /\/views?\//,
       /\/layouts?\//,
       /\/templates?\//,
@@ -33064,7 +33080,11 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
     );
 
     if (matchingFiles.length > 0) {
-      core.info(`🎨 UI files detected: ${matchingFiles.map(f => f.filename).join(', ')}`);
+      core.info(
+        `🎨 UI files detected: ${matchingFiles
+          .map((f) => f.filename)
+          .join(", ")}`
+      );
       core.info("Will run UI tests");
       return true;
     } else {
@@ -33234,14 +33254,14 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
     // Step 1: Analyze PR and create test plan
     core.info("🔍 Step 1: Analyzing PR changes and creating test plan...");
     const testPlan = await this.analyzeAndPlan(prContext);
-    
+
     core.info("📋 Generated test plan:");
     core.info(testPlan);
-    
+
     // Step 2: Convert test plan to code
     core.info("💻 Step 2: Converting test plan to executable code...");
     const testCode = await this.generateTestCode(testPlan, prContext);
-    
+
     return testCode;
   }
 
@@ -33455,36 +33475,9 @@ Return ONLY the complete, executable test code. No explanations or markdown form
       !cleanTestCode.includes("import") &&
       !cleanTestCode.includes("require")
     ) {
-      const imports = "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n";
+      const imports =
+        "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n";
       cleanTestCode = imports + cleanTestCode;
-    }
-
-    // Add environment variable validation for authentication
-    if (this.testUserEmail && this.testUserPassword) {
-      const envCheck = `
-// Verify authentication credentials are available
-console.log('🔑 Authentication credentials check:');
-console.log('TEST_USER_EMAIL available:', !!process.env.TEST_USER_EMAIL);
-console.log('TEST_USER_PASSWORD available:', !!process.env.TEST_USER_PASSWORD);
-
-// Set credentials as constants for direct access in test code
-const TEST_USER_EMAIL = process.env.TEST_USER_EMAIL || '${this.testUserEmail}';
-const TEST_USER_PASSWORD = process.env.TEST_USER_PASSWORD || '${this.testUserPassword}';
-
-if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
-  console.log('✅ Authentication credentials are ready to use');
-  console.log('📧 Email:', TEST_USER_EMAIL);
-  console.log('🔐 Password:', TEST_USER_PASSWORD);
-} else {
-  console.error('❌ Authentication credentials not found in environment variables');
-  process.exit(1);
-}
-
-`;
-      cleanTestCode = cleanTestCode.replace(
-        /(const { startBrowserAgent }[^;]+;[\s\S]*?config\(\);)/,
-        '$1' + envCheck
-      );
     }
 
     const testFilePath = path.join(
@@ -33494,49 +33487,57 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
     await fs.writeFile(testFilePath, cleanTestCode);
 
     core.info(`📝 Test file written: ${testFilePath}`);
-    
+
     // Debug: Print the generated test code
     core.info(`🔍 Generated test code preview:`);
-    const previewLines = cleanTestCode.split('\n').slice(0, 50);
+    const previewLines = cleanTestCode.split("\n").slice(0, 50);
     previewLines.forEach((line, index) => {
       core.info(`${index + 1}: ${line}`);
     });
-    if (cleanTestCode.split('\n').length > 50) {
-      core.info(`... (${cleanTestCode.split('\n').length - 50} more lines)`);
+    if (cleanTestCode.split("\n").length > 50) {
+      core.info(`... (${cleanTestCode.split("\n").length - 50} more lines)`);
     }
-    
+
     return testFilePath;
   }
 
   determineTestSuccess(stdout, stderr, exitCode) {
     // Check for explicit test failure indicators
     const failureIndicators = [
-      'Test suite failed',
-      'process.exit(1)',
-      'All tests failed',
-      'FAILED',
-      'ERROR: Test'
+      "Test suite failed",
+      "process.exit(1)",
+      "All tests failed",
+      "FAILED",
+      "ERROR: Test",
     ];
-    
+
     const successIndicators = [
-      'All tests completed successfully',
-      'Tests passed',
-      'SUCCESS',
-      'Test completed'
+      "All tests completed successfully",
+      "Tests passed",
+      "SUCCESS",
+      "Test completed",
     ];
-    
+
     const output = (stdout + stderr).toLowerCase();
-    
+
     // If test explicitly indicated failure, it's a failure
-    if (failureIndicators.some(indicator => output.includes(indicator.toLowerCase()))) {
+    if (
+      failureIndicators.some((indicator) =>
+        output.includes(indicator.toLowerCase())
+      )
+    ) {
       return false;
     }
-    
+
     // If test explicitly indicated success, it's a success
-    if (successIndicators.some(indicator => output.includes(indicator.toLowerCase()))) {
+    if (
+      successIndicators.some((indicator) =>
+        output.includes(indicator.toLowerCase())
+      )
+    ) {
       return true;
     }
-    
+
     // If no explicit indicators, fall back to exit code
     return exitCode === 0;
   }
@@ -33584,7 +33585,8 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
         stdout: error.stdout || "",
         stderr: error.stderr || "",
         testFilePath,
-        browserErrors: !testSuccess && error.code !== 1 ? [error.message] : undefined,
+        browserErrors:
+          !testSuccess && error.code !== 1 ? [error.message] : undefined,
       };
     }
   }
@@ -33602,18 +33604,21 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
 
   stripAnsiCodes(text) {
     // Remove ANSI escape codes (colors, formatting, etc.)
-    return text.replace(/\u001b\[[0-9;]*m/g, '');
+    return text.replace(/\u001b\[[0-9;]*m/g, "");
   }
 
   sanitizeOutput(text) {
     if (!text) return text;
-    
+
     let sanitized = text;
-    
+
     // Only sanitize API keys for security
-    sanitized = sanitized.replace(/sk-[a-zA-Z0-9]{48}/g, '[API_KEY_REDACTED]');
-    sanitized = sanitized.replace(/ANTHROPIC_API_KEY[=:]\s*[^\s]+/gi, 'ANTHROPIC_API_KEY=[API_KEY_REDACTED]');
-    
+    sanitized = sanitized.replace(/sk-[a-zA-Z0-9]{48}/g, "[API_KEY_REDACTED]");
+    sanitized = sanitized.replace(
+      /ANTHROPIC_API_KEY[=:]\s*[^\s]+/gi,
+      "ANTHROPIC_API_KEY=[API_KEY_REDACTED]"
+    );
+
     return sanitized;
   }
 
@@ -33624,19 +33629,19 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
   }
 
   safeInfo(message) {
-    this.safeLog('info', message);
+    this.safeLog("info", message);
   }
 
   safeError(message) {
-    this.safeLog('error', message);
+    this.safeLog("error", message);
   }
 
   safeWarning(message) {
-    this.safeLog('warning', message);
+    this.safeLog("warning", message);
   }
 
   safeDebug(message) {
-    this.safeLog('debug', message);
+    this.safeLog("debug", message);
   }
 
   parseTestResults(stdout) {
@@ -33644,7 +33649,7 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
       return "❌ **No test output detected** - The test may have failed to run or produce output.";
     }
 
-    const lines = stdout.split('\n');
+    const lines = stdout.split("\n");
     const actions = [];
     const completedTasks = [];
     const failures = [];
@@ -33655,99 +33660,128 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
     let loginDetected = false;
     let loginSkipped = false;
     let credentialsFound = false;
-    
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       // Check for credential validation
-      if (line.includes('Authentication credentials check') || line.includes('TEST_USER_EMAIL available') || line.includes('TEST_USER_PASSWORD available')) {
+      if (
+        line.includes("Authentication credentials check") ||
+        line.includes("TEST_USER_EMAIL available") ||
+        line.includes("TEST_USER_PASSWORD available")
+      ) {
         credentialsFound = true;
       }
-      
+
       // Track test actions
-      if (line.includes('◆ [act]')) {
-        const action = line.replace('◆ [act]', '').trim();
+      if (line.includes("◆ [act]")) {
+        const action = line.replace("◆ [act]", "").trim();
         actions.push(action);
-        
+
         // Check if this is a sorting test
-        if (action.toLowerCase().includes('sort') || action.toLowerCase().includes('column header')) {
+        if (
+          action.toLowerCase().includes("sort") ||
+          action.toLowerCase().includes("column header")
+        ) {
           sortingTest = true;
         }
-        
+
         // Check for login detection
-        if (action.toLowerCase().includes('check login') || action.toLowerCase().includes('already logged in')) {
+        if (
+          action.toLowerCase().includes("check login") ||
+          action.toLowerCase().includes("already logged in")
+        ) {
           loginDetected = true;
         }
-        
+
         // Check for login skip
-        if (action.toLowerCase().includes('already logged in, proceeding') || action.toLowerCase().includes('user is already logged in')) {
+        if (
+          action.toLowerCase().includes("already logged in, proceeding") ||
+          action.toLowerCase().includes("user is already logged in")
+        ) {
           loginSkipped = true;
         }
       }
-      
+
       // Track completed tasks
-      if (line.includes('✓ done')) {
-        const prevLines = lines.slice(Math.max(0, i-5), i);
-        const actionLine = prevLines.find(l => l.includes('◆ [act]'));
+      if (line.includes("✓ done")) {
+        const prevLines = lines.slice(Math.max(0, i - 5), i);
+        const actionLine = prevLines.find((l) => l.includes("◆ [act]"));
         if (actionLine) {
-          completedTasks.push(actionLine.replace('◆ [act]', '').trim());
+          completedTasks.push(actionLine.replace("◆ [act]", "").trim());
         }
       }
-      
+
       // Track extraction results
-      if (line.includes('⛏ [extract]')) {
-        const extractAction = line.replace('⛏ [extract]', '').trim();
+      if (line.includes("⛏ [extract]")) {
+        const extractAction = line.replace("⛏ [extract]", "").trim();
         extractedData.push(extractAction);
       }
-      
+
       // Track failures
-      if (line.includes('✗') || line.includes('FAILED') || line.includes('ERROR')) {
+      if (
+        line.includes("✗") ||
+        line.includes("FAILED") ||
+        line.includes("ERROR")
+      ) {
         failures.push(line);
       }
     }
 
     // Generate analysis
     let analysis = [];
-    
+
     // Overall test execution
     if (actions.length > 0) {
       analysis.push(`**📋 Test Actions Executed:** ${actions.length}`);
       analysis.push(`**✅ Completed Tasks:** ${completedTasks.length}`);
-      
+
       if (failures.length > 0) {
         analysis.push(`**❌ Failures Detected:** ${failures.length}`);
       }
     }
-    
+
     // Specific sorting test analysis
     if (sortingTest) {
       analysis.push(`\n**🔍 Sorting Test Analysis:**`);
-      
+
       // Look for URL changes indicating sorting
-      const urlChanges = lines.filter(line => 
-        line.includes('sortColumn') || line.includes('sortOrder') || 
-        line.includes('sort') && line.includes('URL')
+      const urlChanges = lines.filter(
+        (line) =>
+          line.includes("sortColumn") ||
+          line.includes("sortOrder") ||
+          (line.includes("sort") && line.includes("URL"))
       );
-      
+
       if (urlChanges.length > 0) {
-        analysis.push(`- ✅ **Sorting triggered:** URL parameters were updated (${urlChanges.length} changes detected)`);
+        analysis.push(
+          `- ✅ **Sorting triggered:** URL parameters were updated (${urlChanges.length} changes detected)`
+        );
       }
-      
+
       // Look for before/after data comparison
       const beforeData = [];
       const afterData = [];
       let collectingData = false;
-      
+
       for (const line of lines) {
-        if (line.includes('before') || line.includes('original order')) {
+        if (line.includes("before") || line.includes("original order")) {
           collectingData = true;
         }
-        if (line.includes('after') || line.includes('new order') || line.includes('sorted')) {
+        if (
+          line.includes("after") ||
+          line.includes("new order") ||
+          line.includes("sorted")
+        ) {
           collectingData = false;
         }
-        
+
         // Look for state/location names
-        if (line.includes('Nebraska') || line.includes('Virginia') || line.includes('Alabama')) {
+        if (
+          line.includes("Nebraska") ||
+          line.includes("Virginia") ||
+          line.includes("Alabama")
+        ) {
           if (collectingData) {
             beforeData.push(line);
           } else {
@@ -33755,68 +33789,95 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
           }
         }
       }
-      
+
       if (extractedData.length > 0) {
-        analysis.push(`- 📊 **Data extraction:** ${extractedData.length} extraction operations performed`);
+        analysis.push(
+          `- 📊 **Data extraction:** ${extractedData.length} extraction operations performed`
+        );
       }
-      
+
       // Determine if sorting actually worked
       const sortingWorked = urlChanges.length > 0 || afterData.length > 0;
       if (sortingWorked) {
-        analysis.push(`- ✅ **Sorting Result:** Sorting functionality appears to be working correctly`);
+        analysis.push(
+          `- ✅ **Sorting Result:** Sorting functionality appears to be working correctly`
+        );
       } else {
-        analysis.push(`- ⚠️ **Sorting Result:** Could not definitively verify sorting behavior from output`);
+        analysis.push(
+          `- ⚠️ **Sorting Result:** Could not definitively verify sorting behavior from output`
+        );
       }
     }
-    
+
     // Login detection analysis
     if (loginDetected || loginSkipped || credentialsFound) {
       analysis.push(`\n**🔐 Authentication Analysis:**`);
-      
+
       if (credentialsFound) {
-        analysis.push(`- ✅ **Credentials verified:** Authentication credentials were found in environment variables`);
-      }
-      
-      if (loginSkipped) {
-        analysis.push(`- ✅ **Smart login detection:** User was already logged in, login steps were skipped`);
-        analysis.push(`- ⚡ **Efficiency:** Test avoided unnecessary login attempts`);
-      } else if (loginDetected) {
-        analysis.push(`- 🔍 **Login detection:** Test checked for existing login state`);
-        
-        // Check if login was actually performed
-        const loginActions = actions.filter(action => 
-          action.toLowerCase().includes('login') || 
-          action.toLowerCase().includes('sign in') ||
-          action.toLowerCase().includes('authenticate')
+        analysis.push(
+          `- ✅ **Credentials verified:** Authentication credentials were found in environment variables`
         );
-        
+      }
+
+      if (loginSkipped) {
+        analysis.push(
+          `- ✅ **Smart login detection:** User was already logged in, login steps were skipped`
+        );
+        analysis.push(
+          `- ⚡ **Efficiency:** Test avoided unnecessary login attempts`
+        );
+      } else if (loginDetected) {
+        analysis.push(
+          `- 🔍 **Login detection:** Test checked for existing login state`
+        );
+
+        // Check if login was actually performed
+        const loginActions = actions.filter(
+          (action) =>
+            action.toLowerCase().includes("login") ||
+            action.toLowerCase().includes("sign in") ||
+            action.toLowerCase().includes("authenticate")
+        );
+
         if (loginActions.length > 0) {
-          analysis.push(`- 🔑 **Login performed:** Found ${loginActions.length} login-related actions`);
+          analysis.push(
+            `- 🔑 **Login performed:** Found ${loginActions.length} login-related actions`
+          );
         }
       }
     }
-    
+
     // Action-specific analysis
     if (completedTasks.length > 0) {
       analysis.push(`\n**📝 Completed Actions:**`);
-      completedTasks.forEach(task => {
+      completedTasks.forEach((task) => {
         analysis.push(`- ✅ ${task}`);
       });
     }
-    
+
     // Overall assessment
     analysis.push(`\n**🎯 Overall Assessment:**`);
     if (failures.length === 0 && completedTasks.length > 0) {
-      analysis.push(`- ✅ **Test execution:** All planned actions completed successfully`);
-      analysis.push(`- ✅ **Functionality:** The tested features appear to be working as expected`);
+      analysis.push(
+        `- ✅ **Test execution:** All planned actions completed successfully`
+      );
+      analysis.push(
+        `- ✅ **Functionality:** The tested features appear to be working as expected`
+      );
     } else if (failures.length > 0) {
-      analysis.push(`- ❌ **Test execution:** Some actions failed or encountered errors`);
-      analysis.push(`- ⚠️ **Functionality:** Review the failures to determine if code changes need adjustment`);
+      analysis.push(
+        `- ❌ **Test execution:** Some actions failed or encountered errors`
+      );
+      analysis.push(
+        `- ⚠️ **Functionality:** Review the failures to determine if code changes need adjustment`
+      );
     } else {
-      analysis.push(`- ⚠️ **Test execution:** Limited test output available for analysis`);
+      analysis.push(
+        `- ⚠️ **Test execution:** Limited test output available for analysis`
+      );
     }
-    
-    return analysis.join('\n');
+
+    return analysis.join("\n");
   }
 
   formatResultsComment(testResults) {
@@ -33825,14 +33886,19 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
     const status = testResults.success ? "PASSED" : "FAILED";
 
     // First strip ANSI codes but don't sanitize yet (agent needs to see actual credentials)
-    const rawStdout = testResults.stdout ? this.stripAnsiCodes(testResults.stdout) : "No output";
-    const rawStderr = testResults.stderr ? this.stripAnsiCodes(testResults.stderr) : "";
+    const rawStdout = testResults.stdout
+      ? this.stripAnsiCodes(testResults.stdout)
+      : "No output";
+    const rawStderr = testResults.stderr
+      ? this.stripAnsiCodes(testResults.stderr)
+      : "";
 
     // Parse test results using raw output (with credentials visible)
     const testAnalysis = this.parseTestResults(rawStdout);
 
     // Now sanitize for display in comments (but not for analysis)
-    const cleanStdout = rawStdout !== "No output" ? this.sanitizeOutput(rawStdout) : "No output";
+    const cleanStdout =
+      rawStdout !== "No output" ? this.sanitizeOutput(rawStdout) : "No output";
     const cleanStderr = rawStderr ? this.sanitizeOutput(rawStderr) : "";
 
     return `## ${emoji} Generated Tests ${status}
@@ -33847,13 +33913,15 @@ ${cleanStdout}
 ### Test Analysis:
 ${testAnalysis}
 
-${
-  cleanStderr ? `### Errors:\n\`\`\`\n${cleanStderr}\n\`\`\`` : ""
-}
+${cleanStderr ? `### Errors:\n\`\`\`\n${cleanStderr}\n\`\`\`` : ""}
 
 ${
-  testResults.browserErrors && testResults.browserErrors.length > 0 
-    ? `### Browser Errors (Non-blocking):\n\`\`\`\n${testResults.browserErrors.map(error => this.sanitizeOutput(error)).join('\n')}\n\`\`\`\n\n> **Note**: These browser errors were detected but did not prevent the test from completing its intended actions.`
+  testResults.browserErrors && testResults.browserErrors.length > 0
+    ? `### Browser Errors (Non-blocking):\n\`\`\`\n${testResults.browserErrors
+        .map((error) => this.sanitizeOutput(error))
+        .join(
+          "\n"
+        )}\n\`\`\`\n\n> **Note**: These browser errors were detected but did not prevent the test from completing its intended actions.`
     : ""
 }
 
@@ -33951,24 +34019,26 @@ Please check the action logs for more details.
         await execAsync("npm init -y", { cwd: this.outputDir });
       }
 
-      await execAsync("npm install magnitude-core dotenv playwright", { cwd: this.outputDir });
+      await execAsync("npm install magnitude-core dotenv playwright", {
+        cwd: this.outputDir,
+      });
       core.info("✅ Magnitude and dependencies installed");
-      
+
       // Install Playwright browsers
       core.info("🌐 Installing Playwright browsers...");
       try {
-        await execAsync("npx playwright install --with-deps", { 
+        await execAsync("npx playwright install --with-deps", {
           cwd: this.outputDir,
-          timeout: 300000 // 5 minutes timeout for browser downloads
+          timeout: 300000, // 5 minutes timeout for browser downloads
         });
         core.info("✅ Playwright browsers installed");
       } catch (error) {
         core.warning(`Playwright install failed: ${error.message}`);
         // Try alternative installation method
         core.info("🔄 Trying alternative Playwright installation...");
-        await execAsync("npx playwright install chromium --with-deps", { 
+        await execAsync("npx playwright install chromium --with-deps", {
           cwd: this.outputDir,
-          timeout: 300000
+          timeout: 300000,
         });
         core.info("✅ Playwright Chromium installed");
       }
