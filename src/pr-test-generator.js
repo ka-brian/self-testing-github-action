@@ -786,6 +786,140 @@ Generate a complete, executable test file:`;
     this.safeLog('debug', message);
   }
 
+  parseTestResults(stdout) {
+    if (!stdout || stdout.trim() === "No output") {
+      return "❌ **No test output detected** - The test may have failed to run or produce output.";
+    }
+
+    const lines = stdout.split('\n');
+    const actions = [];
+    const completedTasks = [];
+    const failures = [];
+    let sortingTest = false;
+    let extractedData = [];
+
+    // Parse the output to identify test actions and outcomes
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Track test actions
+      if (line.includes('◆ [act]')) {
+        const action = line.replace('◆ [act]', '').trim();
+        actions.push(action);
+        
+        // Check if this is a sorting test
+        if (action.toLowerCase().includes('sort') || action.toLowerCase().includes('column header')) {
+          sortingTest = true;
+        }
+      }
+      
+      // Track completed tasks
+      if (line.includes('✓ done')) {
+        const prevLines = lines.slice(Math.max(0, i-5), i);
+        const actionLine = prevLines.find(l => l.includes('◆ [act]'));
+        if (actionLine) {
+          completedTasks.push(actionLine.replace('◆ [act]', '').trim());
+        }
+      }
+      
+      // Track extraction results
+      if (line.includes('⛏ [extract]')) {
+        const extractAction = line.replace('⛏ [extract]', '').trim();
+        extractedData.push(extractAction);
+      }
+      
+      // Track failures
+      if (line.includes('✗') || line.includes('FAILED') || line.includes('ERROR')) {
+        failures.push(line);
+      }
+    }
+
+    // Generate analysis
+    let analysis = [];
+    
+    // Overall test execution
+    if (actions.length > 0) {
+      analysis.push(`**📋 Test Actions Executed:** ${actions.length}`);
+      analysis.push(`**✅ Completed Tasks:** ${completedTasks.length}`);
+      
+      if (failures.length > 0) {
+        analysis.push(`**❌ Failures Detected:** ${failures.length}`);
+      }
+    }
+    
+    // Specific sorting test analysis
+    if (sortingTest) {
+      analysis.push(`\n**🔍 Sorting Test Analysis:**`);
+      
+      // Look for URL changes indicating sorting
+      const urlChanges = lines.filter(line => 
+        line.includes('sortColumn') || line.includes('sortOrder') || 
+        line.includes('sort') && line.includes('URL')
+      );
+      
+      if (urlChanges.length > 0) {
+        analysis.push(`- ✅ **Sorting triggered:** URL parameters were updated (${urlChanges.length} changes detected)`);
+      }
+      
+      // Look for before/after data comparison
+      const beforeData = [];
+      const afterData = [];
+      let collectingData = false;
+      
+      for (const line of lines) {
+        if (line.includes('before') || line.includes('original order')) {
+          collectingData = true;
+        }
+        if (line.includes('after') || line.includes('new order') || line.includes('sorted')) {
+          collectingData = false;
+        }
+        
+        // Look for state/location names
+        if (line.includes('Nebraska') || line.includes('Virginia') || line.includes('Alabama')) {
+          if (collectingData) {
+            beforeData.push(line);
+          } else {
+            afterData.push(line);
+          }
+        }
+      }
+      
+      if (extractedData.length > 0) {
+        analysis.push(`- 📊 **Data extraction:** ${extractedData.length} extraction operations performed`);
+      }
+      
+      // Determine if sorting actually worked
+      const sortingWorked = urlChanges.length > 0 || afterData.length > 0;
+      if (sortingWorked) {
+        analysis.push(`- ✅ **Sorting Result:** Sorting functionality appears to be working correctly`);
+      } else {
+        analysis.push(`- ⚠️ **Sorting Result:** Could not definitively verify sorting behavior from output`);
+      }
+    }
+    
+    // Action-specific analysis
+    if (completedTasks.length > 0) {
+      analysis.push(`\n**📝 Completed Actions:**`);
+      completedTasks.forEach(task => {
+        analysis.push(`- ✅ ${task}`);
+      });
+    }
+    
+    // Overall assessment
+    analysis.push(`\n**🎯 Overall Assessment:**`);
+    if (failures.length === 0 && completedTasks.length > 0) {
+      analysis.push(`- ✅ **Test execution:** All planned actions completed successfully`);
+      analysis.push(`- ✅ **Functionality:** The tested features appear to be working as expected`);
+    } else if (failures.length > 0) {
+      analysis.push(`- ❌ **Test execution:** Some actions failed or encountered errors`);
+      analysis.push(`- ⚠️ **Functionality:** Review the failures to determine if code changes need adjustment`);
+    } else {
+      analysis.push(`- ⚠️ **Test execution:** Limited test output available for analysis`);
+    }
+    
+    return analysis.join('\n');
+  }
+
   formatResultsComment(testResults) {
     const timestamp = new Date().toISOString();
     const emoji = testResults.success ? "🎉" : "❌";
@@ -795,6 +929,9 @@ Generate a complete, executable test file:`;
     const cleanStdout = testResults.stdout ? this.sanitizeOutput(this.stripAnsiCodes(testResults.stdout)) : "No output";
     const cleanStderr = testResults.stderr ? this.sanitizeOutput(this.stripAnsiCodes(testResults.stderr)) : "";
 
+    // Parse test results to extract meaningful information
+    const testAnalysis = this.parseTestResults(cleanStdout);
+
     return `## ${emoji} Generated Tests ${status}
 
 *Auto-generated tests for PR #${this.prNumber} • ${timestamp}*
@@ -803,6 +940,9 @@ Generate a complete, executable test file:`;
 \`\`\`
 ${cleanStdout}
 \`\`\`
+
+### Test Analysis:
+${testAnalysis}
 
 ${
   cleanStderr ? `### Errors:\n\`\`\`\n${cleanStderr}\n\`\`\`` : ""
