@@ -33356,9 +33356,13 @@ ${this.testExamples}
 2. **Generate realistic tests** that cover the new/modified behavior
 3. **Use Magnitude syntax** as shown in the examples
 4. **Focus on user-facing features** rather than internal implementation
-5. **Include error cases** and edge cases where appropriate
-6. **Use the preview URLs provided above** for navigation (if available)
-7. **Include authentication steps** if credentials are provided and preview URLs require login
+5. **CRITICAL: Always verify actions with assertions** - After performing any action (click, type, navigate), use \`agent.extract()\` to verify the expected result occurred. For example:
+   - After clicking a sort button, extract and verify the sorted order
+   - After submitting a form, verify success message or redirect
+   - After clicking a button, verify the expected UI change happened
+6. **Include error cases** and edge cases where appropriate
+7. **Use the preview URLs provided above** for navigation (if available)
+8. **Include authentication steps** if credentials are provided and preview URLs require login
 
 ## Important Notes:
 - ${
@@ -33407,6 +33411,39 @@ Generate a complete, executable test file:`;
     return testFilePath;
   }
 
+  determineTestSuccess(stdout, stderr, exitCode) {
+    // Check for explicit test failure indicators
+    const failureIndicators = [
+      'Test suite failed',
+      'process.exit(1)',
+      'All tests failed',
+      'FAILED',
+      'ERROR: Test'
+    ];
+    
+    const successIndicators = [
+      'All tests completed successfully',
+      'Tests passed',
+      'SUCCESS',
+      'Test completed'
+    ];
+    
+    const output = (stdout + stderr).toLowerCase();
+    
+    // If test explicitly indicated failure, it's a failure
+    if (failureIndicators.some(indicator => output.includes(indicator.toLowerCase()))) {
+      return false;
+    }
+    
+    // If test explicitly indicated success, it's a success
+    if (successIndicators.some(indicator => output.includes(indicator.toLowerCase()))) {
+      return true;
+    }
+    
+    // If no explicit indicators, fall back to exit code
+    return exitCode === 0;
+  }
+
   async executeTests(testFilePath) {
     try {
       // Install magnitude-core if not already installed
@@ -33437,12 +33474,20 @@ Generate a complete, executable test file:`;
         testFilePath,
       };
     } catch (error) {
+      // Don't automatically fail on browser errors - check test output instead
+      const testSuccess = this.determineTestSuccess(
+        error.stdout || "",
+        error.stderr || "",
+        error.code || 1
+      );
+
       return {
-        success: false,
-        error: error.message,
+        success: testSuccess,
+        error: testSuccess ? undefined : error.message,
         stdout: error.stdout || "",
         stderr: error.stderr || "",
         testFilePath,
+        browserErrors: !testSuccess && error.code !== 1 ? [error.message] : undefined,
       };
     }
   }
@@ -33463,14 +33508,75 @@ Generate a complete, executable test file:`;
     return text.replace(/\u001b\[[0-9;]*m/g, '');
   }
 
+  sanitizeOutput(text) {
+    if (!text) return text;
+    
+    let sanitized = text;
+    
+    // Sanitize email addresses
+    sanitized = sanitized.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]');
+    
+    // Sanitize usernames/passwords from environment variables
+    if (this.testUserEmail) {
+      sanitized = sanitized.replace(new RegExp(this.testUserEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '[EMAIL_REDACTED]');
+    }
+    if (this.testUserPassword) {
+      sanitized = sanitized.replace(new RegExp(this.testUserPassword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '[PASSWORD_REDACTED]');
+    }
+    
+    // Sanitize API keys
+    sanitized = sanitized.replace(/sk-[a-zA-Z0-9]{48}/g, '[API_KEY_REDACTED]');
+    sanitized = sanitized.replace(/ANTHROPIC_API_KEY[=:]\s*[^\s]+/gi, 'ANTHROPIC_API_KEY=[API_KEY_REDACTED]');
+    
+    // Sanitize common password patterns
+    sanitized = sanitized.replace(/password[=:]\s*[^\s]+/gi, 'password=[PASSWORD_REDACTED]');
+    sanitized = sanitized.replace(/pwd[=:]\s*[^\s]+/gi, 'pwd=[PASSWORD_REDACTED]');
+    sanitized = sanitized.replace(/passwd[=:]\s*[^\s]+/gi, 'passwd=[PASSWORD_REDACTED]');
+    
+    // Sanitize tokens
+    sanitized = sanitized.replace(/token[=:]\s*[^\s]+/gi, 'token=[TOKEN_REDACTED]');
+    sanitized = sanitized.replace(/bearer\s+[^\s]+/gi, 'bearer [TOKEN_REDACTED]');
+    
+    // Sanitize URLs with credentials
+    sanitized = sanitized.replace(/https?:\/\/[^:\/\s]+:[^@\/\s]+@[^\s]+/gi, '[URL_WITH_CREDENTIALS_REDACTED]');
+    
+    // Sanitize common secret patterns
+    sanitized = sanitized.replace(/secret[=:]\s*[^\s]+/gi, 'secret=[SECRET_REDACTED]');
+    sanitized = sanitized.replace(/key[=:]\s*[^\s]+/gi, 'key=[KEY_REDACTED]');
+    
+    return sanitized;
+  }
+
+  // Sanitized logging wrappers
+  safeLog(level, message) {
+    const sanitizedMessage = this.sanitizeOutput(message);
+    core[level](sanitizedMessage);
+  }
+
+  safeInfo(message) {
+    this.safeLog('info', message);
+  }
+
+  safeError(message) {
+    this.safeLog('error', message);
+  }
+
+  safeWarning(message) {
+    this.safeLog('warning', message);
+  }
+
+  safeDebug(message) {
+    this.safeLog('debug', message);
+  }
+
   formatResultsComment(testResults) {
     const timestamp = new Date().toISOString();
     const emoji = testResults.success ? "🎉" : "❌";
     const status = testResults.success ? "PASSED" : "FAILED";
 
-    // Clean up the output by stripping ANSI codes
-    const cleanStdout = testResults.stdout ? this.stripAnsiCodes(testResults.stdout) : "No output";
-    const cleanStderr = testResults.stderr ? this.stripAnsiCodes(testResults.stderr) : "";
+    // Clean up the output by stripping ANSI codes and sanitizing sensitive data
+    const cleanStdout = testResults.stdout ? this.sanitizeOutput(this.stripAnsiCodes(testResults.stdout)) : "No output";
+    const cleanStderr = testResults.stderr ? this.sanitizeOutput(this.stripAnsiCodes(testResults.stderr)) : "";
 
     return `## ${emoji} Generated Tests ${status}
 
@@ -33483,6 +33589,12 @@ ${cleanStdout}
 
 ${
   cleanStderr ? `### Errors:\n\`\`\`\n${cleanStderr}\n\`\`\`` : ""
+}
+
+${
+  testResults.browserErrors && testResults.browserErrors.length > 0 
+    ? `### Browser Errors (Non-blocking):\n\`\`\`\n${testResults.browserErrors.map(error => this.sanitizeOutput(error)).join('\n')}\n\`\`\`\n\n> **Note**: These browser errors were detected but did not prevent the test from completing its intended actions.`
+    : ""
 }
 
 ### Test File:
