@@ -1,0 +1,36 @@
+{
+  "name": "pr-test-generator",
+  "version": "1.0.0",
+  "description": "GitHub Action to auto-generate and run tests for Pull Requests using Claude API and Magnitude",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "ncc build src/index.js -o dist",
+    "test": "jest",
+    "lint": "eslint src/",
+    "package": "npm run build"
+  },
+  "keywords": [
+    "github-action",
+    "pull-request",
+    "testing",
+    "automation",
+    "claude",
+    "magnitude",
+    "e2e-testing"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^6.0.0",
+    "@octokit/rest": "^20.0.2"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.38.1",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

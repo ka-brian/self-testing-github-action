@@ -1,0 +1,50 @@
+name: Auto-Generate PR Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    # Optional: only run on specific paths
+    # paths:
+    #   - 'src/**'
+    #   - 'pages/**'
+    #   - 'components/**'
+
+jobs:
+  generate-tests:
+    runs-on: ubuntu-latest
+
+    # Optional: only run if PR is not from a fork (for security)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate and run tests
+        uses: yourusername/pr-test-generator@v1
+        with:
+          claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: customize test examples
+          test-examples: |
+            // Your project-specific test examples
+            import { test, expect } from 'magnitude';
+
+            test('should load main page', async (page) => {
+              await page.goto('http://localhost:3000');
+              await page.waitForSelector('h1');
+              expect(await page.textContent('h1')).toBe('Welcome');
+            });
+
+            test('should handle navigation', async (page) => {
+              await page.goto('http://localhost:3000');
+              await page.click('a[href="/about"]');
+              await page.waitForURL('**/about');
+              expect(page.url()).toContain('/about');
+            });
+          # Optional: customize output directory
+          output-dir: "./tests/generated"
+          # Optional: adjust timeout (in seconds)
+          timeout: 180
+          # Optional: disable PR commenting
+          comment-on-pr: "true"
