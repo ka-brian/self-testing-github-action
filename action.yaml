@@ -1,0 +1,67 @@
+name: "PR Test Generator"
+description: "Auto-generate and run end-to-end tests for Pull Requests using Claude API and Magnitude"
+author: "Your Name"
+
+branding:
+  icon: "zap"
+  color: "blue"
+
+inputs:
+  claude-api-key:
+    description: "Claude API Key from Anthropic"
+    required: true
+  github-token:
+    description: "GitHub Token for API access"
+    required: true
+    default: ${{ github.token }}
+  test-examples:
+    description: "Custom test examples to guide Claude (optional)"
+    required: false
+    default: |
+      // Example Magnitude tests:
+      import { test } from 'magnitude';
+
+      test('should navigate to homepage', async (page) => {
+        await page.goto('/');
+        await page.waitForSelector('h1');
+        const title = await page.textContent('h1');
+        expect(title).toBe('Welcome');
+      });
+
+      test('should handle form submission', async (page) => {
+        await page.goto('/contact');
+        await page.fill('input[name="email"]', 'test@example.com');
+        await page.click('button[type="submit"]');
+        await page.waitForSelector('.success-message');
+      });
+  output-dir:
+    description: "Directory to save generated test files"
+    required: false
+    default: ".github/generated-tests"
+  timeout:
+    description: "Test execution timeout in seconds"
+    required: false
+    default: "120"
+  comment-on-pr:
+    description: "Whether to comment test results on the PR"
+    required: false
+    default: "true"
+  wait-for-preview:
+    description: "Wait for preview URLs to appear in PR comments (in seconds)"
+    required: false
+    default: "60"
+  base-url:
+    description: "Base URL to use for tests (overrides preview URL detection)"
+    required: false
+
+outputs:
+  test-results:
+    description: "JSON string containing test execution results"
+  test-file-path:
+    description: "Path to the generated test file"
+  tests-passed:
+    description: "Boolean indicating if all tests passed"
+
+runs:
+  using: "node20"
+  main: "dist/index.js"

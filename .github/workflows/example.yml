@@ -20,31 +20,42 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate and run tests
+      # Option 1: Wait for preview URLs (Vercel, Netlify, etc.)
+      - name: Generate and run tests (with preview URL detection)
         uses: yourusername/pr-test-generator@v1
         with:
           claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Optional: customize test examples
+          wait-for-preview: "120" # Wait up to 2 minutes for preview URLs
           test-examples: |
-            // Your project-specific test examples
             import { test, expect } from 'magnitude';
 
             test('should load main page', async (page) => {
-              await page.goto('http://localhost:3000');
+              await page.goto('/');  # Will use detected preview URL
               await page.waitForSelector('h1');
               expect(await page.textContent('h1')).toBe('Welcome');
             });
 
-            test('should handle navigation', async (page) => {
-              await page.goto('http://localhost:3000');
-              await page.click('a[href="/about"]');
-              await page.waitForURL('**/about');
-              expect(page.url()).toContain('/about');
-            });
-          # Optional: customize output directory
-          output-dir: "./tests/generated"
-          # Optional: adjust timeout (in seconds)
-          timeout: 180
-          # Optional: disable PR commenting
-          comment-on-pr: "true"
+    # Option 2: Use a specific base URL
+    # - name: Generate and run tests (with custom base URL)
+    #   uses: yourusername/pr-test-generator@v1
+    #   with:
+    #     claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+    #     base-url: 'https://my-staging-env.example.com'
+    #     test-examples: |
+    #       import { test, expect } from 'magnitude';
+    #
+    #       test('should handle navigation', async (page) => {
+    #         await page.goto('/dashboard');
+    #         await page.waitForSelector('.dashboard-header');
+    #       });
+
+    # Option 3: Use localhost (for self-hosted runners with local dev server)
+    # - name: Start dev server
+    #   run: npm run dev &
+    #
+    # - name: Generate and run tests (localhost)
+    #   uses: yourusername/pr-test-generator@v1
+    #   with:
+    #     claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+    #     base-url: 'http://localhost:3000'
