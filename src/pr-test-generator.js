@@ -637,7 +637,7 @@ Generate a complete, executable test file:`;
     await fs.mkdir(this.outputDir, { recursive: true });
 
     // Clean up the test code (remove markdown formatting)
-    const cleanTestCode = testCode
+    let cleanTestCode = testCode
       .replace(/```(?:javascript|js)?\n?/g, "")
       .replace(/```\n?/g, "")
       .trim();
