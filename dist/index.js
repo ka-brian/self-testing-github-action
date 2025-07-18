@@ -32894,6 +32894,7 @@ class PRTestGenerator {
 
   async requiresUITesting(prContext) {
     core.info("🤖 Analyzing PR changes to determine if UI testing is needed...");
+    core.info(`Files to analyze: ${prContext.files.map(f => f.filename).join(', ')}`);
 
     // Use Claude to analyze the changes
     const prompt = `Analyze the following Pull Request changes and determine if UI testing is necessary.
@@ -32911,14 +32912,25 @@ ${file.patch ? file.patch.slice(0, 1000) : "No patch available"}${file.patch && 
 \`\`\`
 `).join("\n")}
 
-## Instructions:
-Determine if this PR requires UI testing by analyzing:
-1. Are there changes to user-facing features, components, or interfaces?
-2. Are there changes to styling, layouts, or visual elements?
-3. Are there changes to user interactions, forms, or navigation?
-4. Are there changes that could affect what users see or how they interact with the application?
+## UI Testing is REQUIRED for:
+- React/Next.js components (.jsx, .tsx, .js, .ts files in components/, pages/, app/, src/)
+- CSS/styling changes (.css, .scss, .sass, .less files)
+- HTML template changes
+- Frontend routing changes
+- User interface modifications
+- Form, button, or interactive element changes
+- Layout or design changes
+- Frontend script changes that affect user interface
 
-Backend-only changes (APIs, databases, configurations, CI/CD, documentation) typically don't require UI testing.
+## UI Testing is NOT required for:
+- Pure backend API changes (no frontend impact)
+- Database schema changes
+- CI/CD configuration only
+- Documentation only changes
+- Server-side only configuration
+
+## Instructions:
+Look carefully at the file paths and changes. If ANY file appears to be frontend-related (React components, styles, pages, UI scripts), answer YES.
 
 Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not needed. Do not include any explanation.`;
 
@@ -32951,11 +32963,47 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
       const data = await response.json();
       const result = data.content[0].text.trim().toUpperCase();
       
+      core.info(`Claude AI analysis result: ${result}`);
+      
       if (result === "YES") {
-        core.info("🎨 UI changes detected - will run UI tests");
+        core.info("🎨 UI changes detected by Claude - will run UI tests");
         return true;
       } else if (result === "NO") {
-        core.info("🔧 No UI changes detected - will skip UI tests");
+        // Double-check with fallback detection for obvious frontend files
+        const hasObviousUIFiles = prContext.files.some((file) => {
+          const filename = file.filename;
+          return (
+            filename.includes('component') ||
+            filename.includes('/pages/') ||
+            filename.includes('/app/') ||
+            filename.includes('/src/') ||
+            filename.endsWith('.jsx') ||
+            filename.endsWith('.tsx') ||
+            filename.endsWith('.css') ||
+            filename.endsWith('.scss')
+          );
+        });
+        
+        if (hasObviousUIFiles) {
+          core.warning("🔄 Claude said NO but obvious UI files detected - overriding to run UI tests");
+          const uiFiles = prContext.files.filter(f => {
+            const filename = f.filename;
+            return (
+              filename.includes('component') ||
+              filename.includes('/pages/') ||
+              filename.includes('/app/') ||
+              filename.includes('/src/') ||
+              filename.endsWith('.jsx') ||
+              filename.endsWith('.tsx') ||
+              filename.endsWith('.css') ||
+              filename.endsWith('.scss')
+            );
+          });
+          core.info(`UI files found: ${uiFiles.map(f => f.filename).join(', ')}`);
+          return true;
+        }
+        
+        core.info("🔧 No UI changes detected by Claude - will skip UI tests");
         return false;
       } else {
         core.warning(`Unexpected Claude response: ${result}`);
@@ -32972,28 +33020,57 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
   fallbackUIDetection(prContext) {
     core.info("🔍 Using fallback UI detection...");
     
-    // Basic file pattern matching as fallback
+    // Log all changed files for debugging
+    core.info(`Changed files: ${prContext.files.map(f => f.filename).join(', ')}`);
+    
+    // Comprehensive file pattern matching as fallback
     const uiFilePatterns = [
-      /\.(jsx?|tsx?|vue|svelte)$/,
+      // React/Next.js files
+      /\.(jsx?|tsx?)$/,
+      /\.(vue|svelte)$/,
+      // Style files
       /\.(css|scss|sass|less|stylus)$/,
+      // HTML templates
       /\.(html|htm|ejs|hbs|pug|jade)$/,
+      // Component directories
       /\/components?\//,
       /\/pages?\//,
+      /\/app\//,  // Next.js app directory
+      /\/src\//,   // Common source directory
       /\/views?\//,
+      /\/layouts?\//,
+      /\/templates?\//,
+      // Style directories
       /\/styles?\//,
+      /\/css\//,
+      /\/sass\//,
+      /\/scss\//,
+      // Asset directories
+      /\/assets?\//,
+      /\/public\//,
+      /\/static\//,
+      // Config files that affect UI
+      /tailwind\.config\./,
+      /next\.config\./,
+      /nuxt\.config\./,
+      /vite\.config\./,
+      /webpack\.config\./,
+      // Package.json changes that might affect UI dependencies
+      /package\.json$/,
     ];
 
-    const hasUIFiles = prContext.files.some((file) =>
+    const matchingFiles = prContext.files.filter((file) =>
       uiFilePatterns.some((pattern) => pattern.test(file.filename))
     );
 
-    if (hasUIFiles) {
-      core.info("🎨 UI files detected - will run UI tests");
+    if (matchingFiles.length > 0) {
+      core.info(`🎨 UI files detected: ${matchingFiles.map(f => f.filename).join(', ')}`);
+      core.info("Will run UI tests");
+      return true;
     } else {
       core.info("🔧 No UI files detected - will skip UI tests");
+      return false;
     }
-
-    return hasUIFiles;
   }
 
   async getPRContext() {
