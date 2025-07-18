@@ -448,7 +448,55 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
   }
 
   async generateTests(prContext) {
-    const prompt = this.buildPrompt(prContext);
+    // Step 1: Analyze PR and create test plan
+    core.info("🔍 Step 1: Analyzing PR changes and creating test plan...");
+    const testPlan = await this.analyzeAndPlan(prContext);
+    
+    core.info("📋 Generated test plan:");
+    core.info(testPlan);
+    
+    // Step 2: Convert test plan to code
+    core.info("💻 Step 2: Converting test plan to executable code...");
+    const testCode = await this.generateTestCode(testPlan, prContext);
+    
+    return testCode;
+  }
+
+  async analyzeAndPlan(prContext) {
+    const prompt = this.buildAnalysisPrompt(prContext);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": this.claudeApiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 2000,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Claude API error (analysis): ${response.status} ${response.statusText} - ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  }
+
+  async generateTestCode(testPlan, prContext) {
+    const prompt = this.buildCodePrompt(testPlan, prContext);
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -472,7 +520,7 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(
-        `Claude API error: ${response.status} ${response.statusText} - ${errorText}`
+        `Claude API error (code generation): ${response.status} ${response.statusText} - ${errorText}`
       );
     }
 
@@ -480,111 +528,29 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
     return data.content[0].text;
   }
 
-  buildPrompt(prContext) {
+  buildAnalysisPrompt(prContext) {
     const changedFiles = prContext.files
       .filter((file) => file.patch) // Only files with actual changes
       .slice(0, 10); // Limit to prevent token overflow
 
-    const authenticationSection =
-      this.testUserEmail && this.testUserPassword
-        ? `## Authentication Available:
-✅ **CREDENTIALS ARE PROVIDED** - Test user credentials are available as pre-loaded constants:
-- \`TEST_USER_EMAIL\` constant contains the test user email (loaded from environment)
-- \`TEST_USER_PASSWORD\` constant contains the test user password (loaded from environment)
-
-**ABSOLUTELY CRITICAL**: You MUST use these credentials when authentication is required. Do NOT say "no credentials provided" - they are available in the environment.
-
-**MANDATORY AUTHENTICATION RULES**:
-- ✅ ALWAYS use \`TEST_USER_EMAIL\` and \`TEST_USER_PASSWORD\` constants for login (pre-loaded from environment)
-- ✅ These constants are already available in your test code - no need to access process.env directly
-- ❌ NEVER create new accounts or register new users
-- ❌ NEVER use dummy emails like admin@example.com, admin@conduiit.com, test@test.com
-- ❌ NEVER attempt signup or registration flows
-- ❌ NEVER skip authentication because you think credentials aren't available
-- ❌ NEVER claim "no credentials provided" - they ARE provided as constants
-
-**Login Detection Logic**:
-1. First navigate to the main page/dashboard
-2. Check if the user is already logged in by looking for dashboard elements, user profile, or authenticated UI
-3. If already logged in, skip the login process
-4. If not logged in, then proceed with the login steps using ONLY the environment variables
-
-**Example with login detection**:
-\`\`\`javascript
-// First check if user is already logged in
-await agent.act('Navigate to the main page to check login status');
-
-// Try to detect if already logged in by looking for authenticated elements
-const isLoggedIn = await agent.extract('Check if user is already logged in by looking for dashboard elements, user profile, or authenticated UI indicators');
-
-if (!isLoggedIn) {
-  // CRITICAL: Use the EXACT credentials that are pre-loaded as constants
-  const userEmail = TEST_USER_EMAIL;  // This is the ONLY email to use (already loaded from env)
-  const userPassword = TEST_USER_PASSWORD;  // This is the ONLY password to use (already loaded from env)
-  
-  await agent.act('Navigate to the login/sign-in page');
-  await agent.act(\`Click on the email input field and type: \${userEmail}\`);
-  await agent.act(\`Click on the password input field and type: \${userPassword}\`);
-  await agent.act('Click the login/sign-in/continue button to authenticate');
-  await agent.act('Wait for successful login and redirect to dashboard or authenticated area');
-  
-  // Verify login succeeded
-  const loginSuccess = await agent.extract('Check if login was successful by looking for dashboard, user profile, or other authenticated UI elements');
-  if (!loginSuccess) {
-    throw new Error('Login failed with provided credentials');
-  }
-} else {
-  await agent.act('User is already logged in, proceeding with tests');
-}
-\`\`\`
-
-**CRITICAL REMINDER - READ THIS CAREFULLY**: 
-- ✅ CREDENTIALS ARE PROVIDED: TEST_USER_EMAIL and TEST_USER_PASSWORD constants ARE available in your test code
-- ✅ These constants are pre-loaded with REAL, WORKING credentials from environment variables
-- ✅ Email is: brianbluecore+testuser@gmail.com, Password is: testuser909 (available as constants)
-- ✅ Use them when authentication is required - do NOT attempt login without them
-- ✅ Simply use: \`const userEmail = TEST_USER_EMAIL;\` and \`const userPassword = TEST_USER_PASSWORD;\`
-- ❌ NEVER claim "no credentials provided" or "credentials not found" - they ARE available as constants
-- ❌ Do NOT skip authentication steps due to missing credentials - they ARE provided
-- ❌ NEVER try to register/signup new accounts - USE THE PROVIDED LOGIN CREDENTIALS
-- ❌ NEVER use admin@example.com, admin@conduiit.com or any other dummy emails
-
-`
-        : `## No Authentication Configured
-Tests will run without authentication. If preview URLs require login, tests may fail.
-
-`;
-
     const previewUrlsSection =
       prContext.previewUrls.length > 0
         ? `## Available Preview URLs:
-${prContext.previewUrls.map((url) => `- ${url}`).join("\n")}
-
-**Important**: Use these preview URLs as the base URL for your tests. For example:
-- \`await page.goto('${prContext.previewUrls[0]}');\`
-- \`await page.goto('${prContext.previewUrls[0]}/dashboard');\`
-
-`
+${prContext.previewUrls.map((url) => `- ${url}`).join("\n")}`
         : `## No Preview URLs Found
-Tests should use relative paths or localhost. Examples:
-- \`await page.goto('http://localhost:3000');\`
-- \`await page.goto('/');\` (if base URL is configured)
+Tests should target the main application functionality.`;
 
-`;
-
-    return `You are a test generator for a GitHub Pull Request. Generate comprehensive end-to-end tests using the Magnitude testing framework.
+    return `You are analyzing a GitHub Pull Request to determine what UI tests should be created.
 
 ## Repository Context:
 ${Object.entries(prContext.repoContext)
   .map(
     ([file, content]) =>
-      `### ${file}\n\`\`\`\n${content.slice(0, 1000)}${
-        content.length > 1000 ? "..." : ""
+      `### ${file}\n\`\`\`\n${content.slice(0, 500)}${
+        content.length > 500 ? "..." : ""
       }\n\`\`\`\n`
   )
   .join("\n")}
-
-${authenticationSection}
 
 ${previewUrlsSection}
 
@@ -601,53 +567,94 @@ ${changedFiles
 ### ${file.filename} (${file.status})
 **Changes**: +${file.additions} -${file.deletions}
 \`\`\`diff
-${file.patch.slice(0, 2000)}${
-      file.patch.length > 2000 ? "\n...(truncated)" : ""
+${file.patch.slice(0, 1500)}${
+      file.patch.length > 1500 ? "\n...(truncated)" : ""
     }
 \`\`\`
 `
   )
   .join("\n")}
 
+## Your Task:
+Analyze the PR changes and create a list of specific UI tests that should be performed. Focus on:
+1. **User-facing functionality** that was added or modified
+2. **UI interactions** that need testing (clicks, forms, navigation)
+3. **Visual changes** that should be verified
+4. **User workflows** that might be affected
+
+## Output Format:
+Provide a numbered list of specific test scenarios in plain English. Each test should:
+- Be specific about what to test
+- Include expected outcomes
+- Focus on user-visible behavior
+
+Example format:
+1. Navigate to the admin page and verify the new citation management section is visible
+2. Click the "Add Citation" button and verify a form appears
+3. Fill out the citation form with test data and submit it
+4. Verify the citation appears in the list with correct formatting
+
+Provide 3-7 specific test scenarios based on the changes.`;
+  }
+
+  buildCodePrompt(testPlan, prContext) {
+    const authenticationSection =
+      this.testUserEmail && this.testUserPassword
+        ? `
+## Authentication Available:
+**Credentials**: \`TEST_USER_EMAIL\` and \`TEST_USER_PASSWORD\` constants are available.
+
+**Smart Login Pattern**:
+\`\`\`javascript
+// Check if already logged in first
+const isLoggedIn = await agent.extract('Check if user is already logged in');
+
+if (!isLoggedIn) {
+  await agent.act('Navigate to login page');
+  await agent.act(\`Type email: \${TEST_USER_EMAIL}\`);
+  await agent.act(\`Type password: \${TEST_USER_PASSWORD}\`);
+  await agent.act('Click login button');
+}
+// Continue with tests...
+\`\`\`
+`
+        : `
+## No Authentication Configured
+Tests will run without authentication.
+`;
+
+    const baseUrlSection =
+      prContext.previewUrls.length > 0
+        ? `
+## Base URL:
+Use: \`${prContext.previewUrls[0]}\`
+`
+        : `
+## Base URL:
+Use: \`http://localhost:3000\`
+`;
+
+    return `Convert this test plan into executable Magnitude test code.
+
+${authenticationSection}
+
+${baseUrlSection}
+
+## Test Plan to Implement:
+${testPlan}
+
 ## Test Framework Examples:
 ${this.testExamples}
 
 ## Requirements:
-1. **Analyze the PR changes** and identify what functionality needs testing
-2. **Generate realistic tests** that cover the new/modified behavior
-3. **Use Magnitude syntax** as shown in the examples
-4. **Focus on user-facing features** rather than internal implementation
-5. **CRITICAL: Always verify actions with assertions** - After performing any action (click, type, navigate), use \`agent.extract()\` to verify the expected result occurred. For example:
-   - After clicking a sort button, extract and verify the sorted order
-   - After submitting a form, verify success message or redirect
-   - After clicking a button, verify the expected UI change happened
-6. **Include error cases** and edge cases where appropriate
-7. **Use the preview URLs provided above** for navigation (if available)
-8. **MANDATORY AUTHENTICATION WORKFLOW**: If credentials are provided and preview URLs require login:
-   - FIRST check if user is already logged in before attempting login
-   - Only perform login steps if the user is not already authenticated
-   - Use \`agent.extract()\` to detect login status by looking for authenticated UI elements
-   - **ABSOLUTELY CRITICAL**: When authentication is needed, you MUST use \`TEST_USER_EMAIL\` and \`TEST_USER_PASSWORD\` constants - these are the ONLY acceptable credentials
-   - **NEVER** create new accounts, use dummy emails like admin@example.com, or attempt registration
-   - **NEVER** try to sign up for new accounts - always use the provided login credentials
-   - The credentials are already loaded as constants: \`TEST_USER_EMAIL\` and \`TEST_USER_PASSWORD\`
+1. **Implement each test** from the test plan above
+2. **Use Magnitude syntax** as shown in examples
+3. **Include authentication logic** if credentials are provided (use the pattern above)
+4. **Always verify actions** with \`agent.extract()\` after important steps
+5. **Use the base URL** provided above for navigation
 
-## Important Notes:
-- ${
-      prContext.previewUrls.length > 0
-        ? `Use the preview URLs: ${prContext.previewUrls[0]} as your base URL`
-        : "Use localhost:3000 or relative paths for navigation"
-    }
-- ${
-      this.testUserEmail && this.testUserPassword
-        ? "🔑 AUTHENTICATION MANDATORY: TEST_USER_EMAIL and TEST_USER_PASSWORD constants are available in the test environment. You MUST use ONLY these pre-loaded credential constants for authentication. NEVER create new accounts, NEVER use dummy emails, NEVER attempt registration. ALWAYS check if user is already logged in before attempting login. The provided credentials are REAL and WORKING."
-        : "No authentication configured - tests will run without login"
-    }
-- Include appropriate waits and assertions
-- Test both success and failure scenarios
-- Return ONLY the test code, no explanations or markdown
-
-Generate a complete, executable test file:`;
+## Output:
+Return ONLY the complete, executable test code. No explanations or markdown formatting.`;
   }
 
   async writeTestFile(testCode) {
@@ -704,6 +711,17 @@ if (TEST_USER_EMAIL && TEST_USER_PASSWORD) {
     await fs.writeFile(testFilePath, cleanTestCode);
 
     core.info(`📝 Test file written: ${testFilePath}`);
+    
+    // Debug: Print the generated test code
+    core.info(`🔍 Generated test code preview:`);
+    const previewLines = cleanTestCode.split('\n').slice(0, 50);
+    previewLines.forEach((line, index) => {
+      core.info(`${index + 1}: ${line}`);
+    });
+    if (cleanTestCode.split('\n').length > 50) {
+      core.info(`... (${cleanTestCode.split('\n').length - 50} more lines)`);
+    }
+    
     return testFilePath;
   }
 
