@@ -107,30 +107,34 @@ The action will add a comment to your PR like this:
     test-examples: |
       const { startBrowserAgent } = require('magnitude-core');
       require('dotenv').config();
-      
+
       async function runTests() {
         const agent = await startBrowserAgent({
           url: process.env.PREVIEW_URL || 'http://localhost:3000',
-          narrate: true
+          narrate: true,
+          browser: {
+            launchOptions: { headless: true },
+            contextOptions: { viewport: { width: 1280, height: 720 } 
+          }
         });
-        
+
         try {
           console.log('Test: Loading dashboard');
           await agent.act('Navigate to the dashboard page');
           const heading = await agent.extract('Get the main dashboard heading text');
           console.log('Dashboard heading:', heading);
-          
+
           console.log('Test: User interactions');
           await agent.act('Navigate to the homepage');
           await agent.act('Click on the menu button');
           await agent.act('Wait for the menu to open');
-          
+
           console.log('All tests completed successfully');
         } finally {
           await agent.stop();
         }
       }
-      
+
       runTests().catch(error => {
         console.error('Test suite failed:', error);
         process.exit(1);
@@ -229,11 +233,15 @@ test-examples: |
   // Your actual test patterns
   const { startBrowserAgent } = require('magnitude-core');
   require('dotenv').config();
-  
+
   async function runTests() {
     const agent = await startBrowserAgent({
       url: process.env.PREVIEW_URL || 'http://localhost:3000',
-      narrate: true
+      narrate: true,
+      browser: {
+        launchOptions: { headless: true },
+        contextOptions: { viewport: { width: 1280, height: 720 } 
+      }
     });
     
     try {
@@ -256,7 +264,7 @@ test-examples: |
       await agent.stop();
     }
   }
-  
+
   runTests().catch(error => {
     console.error('Test suite failed:', error);
     process.exit(1);

@@ -21,11 +21,15 @@ inputs:
       // Example Magnitude tests:
       const { startBrowserAgent } = require('magnitude-core');
       require('dotenv').config();
-      
+
       async function runTests() {
         const agent = await startBrowserAgent({
           url: process.env.PREVIEW_URL || 'http://localhost:3000',
-          narrate: true
+          narrate: true,
+          browser: {
+            launchOptions: { headless: true },
+            contextOptions: { viewport: { width: 1280, height: 720 } 
+          }
         });
         
         try {
@@ -39,7 +43,7 @@ inputs:
           await agent.stop();
         }
       }
-      
+
       runTests().catch(error => {
         console.error('Test suite failed:', error);
         process.exit(1);
