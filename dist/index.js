@@ -33279,13 +33279,13 @@ Generate a complete, executable test file:`;
       !cleanTestCode.includes("import") &&
       !cleanTestCode.includes("require")
     ) {
-      const imports = "import { test } from 'magnitude-test';\n\n";
+      const imports = "import { test } from 'magnitude-core';\n\n";
       cleanTestCode = imports + cleanTestCode;
     }
 
     const testFilePath = path.join(
       this.outputDir,
-      `pr-${this.prNumber}-tests.js`
+      `pr-${this.prNumber}-tests.mag.ts`
     );
     await fs.writeFile(testFilePath, cleanTestCode);
 
@@ -33332,7 +33332,7 @@ Generate a complete, executable test file:`;
 
   async ensureMagnitudeInstalled() {
     try {
-      await execAsync("npm list magnitude-test", { cwd: this.outputDir });
+      await execAsync("npm list magnitude-core", { cwd: this.outputDir });
       core.debug("✅ Magnitude already installed");
     } catch (error) {
       core.info("📦 Installing Magnitude...");
@@ -33344,7 +33344,7 @@ Generate a complete, executable test file:`;
         await execAsync("npm init -y", { cwd: this.outputDir });
       }
 
-      await execAsync("npm install magnitude-test", { cwd: this.outputDir });
+      await execAsync("npm install magnitude-core", { cwd: this.outputDir });
       core.info("✅ Magnitude installed");
     }
   }
