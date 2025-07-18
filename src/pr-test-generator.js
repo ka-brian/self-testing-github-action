@@ -712,6 +712,11 @@ Please check the action logs for more details.
 
       await execAsync("npm install magnitude-core", { cwd: this.outputDir });
       core.info("✅ Magnitude installed");
+      
+      // Install Playwright browsers
+      core.info("🌐 Installing Playwright browsers...");
+      await execAsync("npx playwright install", { cwd: this.outputDir });
+      core.info("✅ Playwright browsers installed");
     }
   }
 }
