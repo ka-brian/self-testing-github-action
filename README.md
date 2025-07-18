@@ -105,18 +105,34 @@ The action will add a comment to your PR like this:
     claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
     # Custom test examples for your project
     test-examples: |
-      import { test } from 'magnitude-test';
-
-      test('should load dashboard', async (agent) => {
-        await agent.act('Navigate to the dashboard page');
-        const heading = await agent.extract('Get the main dashboard heading text');
-        expect(heading).toBe('Dashboard');
-      });
-
-      test('should handle user interactions', async (agent) => {
-        await agent.act('Navigate to the homepage');
-        await agent.act('Click on the menu button');
-        await agent.act('Wait for the menu to open');
+      const { startBrowserAgent } = require('magnitude-core');
+      
+      async function runTests() {
+        const agent = await startBrowserAgent({
+          url: process.env.PREVIEW_URL || 'http://localhost:3000',
+          narrate: true
+        });
+        
+        try {
+          console.log('Test: Loading dashboard');
+          await agent.act('Navigate to the dashboard page');
+          const heading = await agent.extract('Get the main dashboard heading text');
+          console.log('Dashboard heading:', heading);
+          
+          console.log('Test: User interactions');
+          await agent.act('Navigate to the homepage');
+          await agent.act('Click on the menu button');
+          await agent.act('Wait for the menu to open');
+          
+          console.log('All tests completed successfully');
+        } finally {
+          await agent.stop();
+        }
+      }
+      
+      runTests().catch(error => {
+        console.error('Test suite failed:', error);
+        process.exit(1);
       });
     # Save tests to custom location
     output-dir: "./e2e/generated"
@@ -210,32 +226,38 @@ with:
 # Provide project-specific test patterns
 test-examples: |
   // Your actual test patterns
-  import { test } from 'magnitude-test';
-
-  test('should authenticate user', async (agent) => {
-    await agent.act('Navigate to the login page');
-    await agent.act('Login with credentials', {
-      data: {
-        email: process.env.TEST_USER_EMAIL,
-        password: process.env.TEST_USER_PASSWORD
-      }
-    });
-    await agent.act('Wait for redirect to dashboard');
-  });
-
-  test('should access protected route', async (agent) => {
-    // Login first
-    await agent.act('Navigate to the login page');
-    await agent.act('Login with credentials', {
-      data: {
-        email: process.env.TEST_USER_EMAIL,
-        password: process.env.TEST_USER_PASSWORD
-      }
+  const { startBrowserAgent } = require('magnitude-core');
+  
+  async function runTests() {
+    const agent = await startBrowserAgent({
+      url: process.env.PREVIEW_URL || 'http://localhost:3000',
+      narrate: true
     });
     
-    // Then test protected functionality
-    await agent.act('Navigate to the admin section');
-    await agent.act('Wait for admin dashboard to load');
+    try {
+      console.log('Test: User authentication');
+      await agent.act('Navigate to the login page');
+      await agent.act('Login with credentials', {
+        data: {
+          email: process.env.TEST_USER_EMAIL,
+          password: process.env.TEST_USER_PASSWORD
+        }
+      });
+      await agent.act('Wait for redirect to dashboard');
+      
+      console.log('Test: Access protected route');
+      await agent.act('Navigate to the admin section');
+      await agent.act('Wait for admin dashboard to load');
+      
+      console.log('All tests completed successfully');
+    } finally {
+      await agent.stop();
+    }
+  }
+  
+  runTests().catch(error => {
+    console.error('Test suite failed:', error);
+    process.exit(1);
   });
 ```
 

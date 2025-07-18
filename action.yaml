@@ -19,24 +19,29 @@ inputs:
     required: false
     default: |
       // Example Magnitude tests:
-      import { test } from 'magnitude-test';
-
-      test('should navigate to homepage', async (agent) => {
-        await agent.act('Navigate to the homepage');
-        const title = await agent.extract('Get the main heading text');
-        expect(title).toBe('Welcome');
-      });
-
-      test('should handle form submission', async (agent) => {
-        await agent.act('Navigate to the contact page');
-        await agent.act('Fill in the contact form', {
-          data: {
-            email: 'test@example.com',
-            message: 'Hello, this is a test message'
-          }
+      const { startBrowserAgent } = require('magnitude-core');
+      
+      async function runTests() {
+        const agent = await startBrowserAgent({
+          url: process.env.PREVIEW_URL || 'http://localhost:3000',
+          narrate: true
         });
-        await agent.act('Submit the form');
-        await agent.act('Wait for success message to appear');
+        
+        try {
+          console.log('Test: Navigate to homepage');
+          await agent.act('Navigate to the homepage');
+          const title = await agent.extract('Get the main heading text');
+          console.log('Page title:', title);
+          
+          console.log('All tests completed successfully');
+        } finally {
+          await agent.stop();
+        }
+      }
+      
+      runTests().catch(error => {
+        console.error('Test suite failed:', error);
+        process.exit(1);
       });
   output-dir:
     description: "Directory to save generated test files"
