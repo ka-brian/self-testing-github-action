@@ -304,14 +304,34 @@ Enable debug logging by setting the `ACTIONS_STEP_DEBUG` secret to `true` in you
 - Subject to Claude API rate limits and token limits
 - Generated tests may require manual review and adjustment
 
+## Local Testing
+
+You can test the PR Test Generator locally without needing to create actual PRs:
+
+```bash
+# Set up environment
+cp .env.example .env
+# Add your CLAUDE_API_KEY to .env
+
+# Run local test suite
+npm test
+```
+
+This runs a comprehensive test that:
+- Starts a local blog server
+- Simulates a GitHub PR with HTML changes
+- Tests the full test generation pipeline
+- Validates Claude AI integration
+
+See [TESTING.md](TESTING.md) for detailed testing documentation.
+
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Run tests: `npm test`
-5. Build: `npm run build`
-6. Submit a Pull Request
+5. Submit a Pull Request
 
 ## License
 

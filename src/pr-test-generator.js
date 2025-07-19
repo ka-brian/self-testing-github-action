@@ -15,7 +15,7 @@ class PRTestGenerator {
     this.repo = config.repo;
     this.prNumber = config.prNumber;
     this.testExamples = config.testExamples;
-    this.outputDir = config.outputDir || ".github/generated-tests";
+    // outputDir removed - we no longer save test files
     this.timeout = config.timeout || 120000;
     this.commentOnPR = config.commentOnPR !== false;
     this.waitForPreview = config.waitForPreview || 60;
@@ -78,24 +78,23 @@ class PRTestGenerator {
       core.info("🤖 Generating tests with Claude...");
       const testCode = await this.generateTests(prContext);
 
-      core.info("💾 Writing test file...");
-      const testFilePath = await this.writeTestFile(testCode);
+      core.info("📄 Generated test code:");
+      this.printTestCode(testCode);
 
-      core.info("🧪 Executing tests...");
-      const testResults = await this.executeTests(testFilePath);
+      core.info("✅ Test generation complete - execution skipped");
 
       if (this.commentOnPR) {
-        core.info("💬 Commenting results on PR...");
-        await this.commentResults(testResults);
+        core.info("💬 Commenting on PR...");
+        await this.commentGenerated(testCode);
       }
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       core.info(`✅ Completed in ${duration}s`);
 
       return {
-        success: testResults.success,
-        testFilePath,
-        results: testResults,
+        success: true,
+        testCode,
+        results: { success: true, message: "Test code generated successfully" },
         duration,
       };
     } catch (error) {
@@ -596,25 +595,33 @@ ${file.patch.slice(0, 1500)}${
   .join("\n")}
 
 ## Your Task:
-Analyze the PR changes and create a list of specific UI tests that should be performed. Focus on:
-1. **User-facing functionality** that was added or modified
-2. **UI interactions** that need testing (clicks, forms, navigation)
-3. **Visual changes** that should be verified
-4. **User workflows** that might be affected
+Analyze the PR changes and create a SIMPLE, focused list of UI tests. 
+
+**IMPORTANT**: Keep tests minimal and focused. For simple changes like copy updates, styling tweaks, or minor functionality:
+- Only test what actually changed
+- Avoid comprehensive testing of existing features
+- Focus on the specific modification, not the entire feature
+
+## Test Planning Guidelines:
+- **Simple copy/text changes**: 1-2 tests max (verify text appears correctly)
+- **Minor styling changes**: 1-3 tests (verify visual change is applied)
+- **Small feature additions**: 2-4 tests (test the new functionality only)
+- **Complex features**: Maximum 5 tests
 
 ## Output Format:
 Provide a numbered list of specific test scenarios in plain English. Each test should:
 - Be specific about what to test
 - Include expected outcomes
-- Focus on user-visible behavior
+- Focus ONLY on what changed in this PR
 
-Example format:
-1. Navigate to the admin page and verify the new citation management section is visible
-2. Click the "Add Citation" button and verify a form appears
-3. Fill out the citation form with test data and submit it
-4. Verify the citation appears in the list with correct formatting
+Example for simple copy change:
+1. Navigate to the homepage and verify the title shows "New Title" instead of "Old Title"
 
-Provide 3-7 specific test scenarios based on the changes.`;
+Example for minor feature:
+1. Navigate to the settings page and verify the new "Export Data" button is visible
+2. Click the "Export Data" button and verify a download starts
+
+Provide 1-5 specific test scenarios based on the changes. Keep it simple and focused.`;
   }
 
   buildCodePrompt(testPlan, prContext) {
@@ -677,10 +684,7 @@ ${this.testExamples}
 Return ONLY the complete, executable test code. No explanations or markdown formatting.`;
   }
 
-  async writeTestFile(testCode) {
-    // Ensure output directory exists
-    await fs.mkdir(this.outputDir, { recursive: true });
-
+  printTestCode(testCode) {
     // Clean up the test code (remove markdown formatting)
     let cleanTestCode = testCode
       .replace(/```(?:javascript|js)?\n?/g, "")
@@ -697,119 +701,38 @@ Return ONLY the complete, executable test code. No explanations or markdown form
       cleanTestCode = imports + cleanTestCode;
     }
 
-    const testFilePath = path.join(
-      this.outputDir,
-      `pr-${this.prNumber}-tests.js`
-    );
-    await fs.writeFile(testFilePath, cleanTestCode);
-
-    core.info(`📝 Test file written: ${testFilePath}`);
-
-    // Debug: Print the generated test code
-    core.info(`🔍 Generated test code preview:`);
-    const previewLines = cleanTestCode.split("\n").slice(0, 50);
-    previewLines.forEach((line, index) => {
+    core.info(`🔍 Generated test code:`);
+    const lines = cleanTestCode.split("\n");
+    lines.forEach((line, index) => {
       core.info(`${index + 1}: ${line}`);
     });
-    if (cleanTestCode.split("\n").length > 50) {
-      core.info(`... (${cleanTestCode.split("\n").length - 50} more lines)`);
-    }
-
-    return testFilePath;
   }
 
-  determineTestSuccess(stdout, stderr, exitCode) {
-    // Check for explicit test failure indicators
-    const failureIndicators = [
-      "Test suite failed",
-      "process.exit(1)",
-      "All tests failed",
-      "FAILED",
-      "ERROR: Test",
-    ];
+  async commentGenerated(testCode) {
+    const timestamp = new Date().toISOString();
+    
+    // Clean up the test code for display
+    let cleanTestCode = testCode
+      .replace(/```(?:javascript|js)?\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
 
-    const successIndicators = [
-      "All tests completed successfully",
-      "Tests passed",
-      "SUCCESS",
-      "Test completed",
-    ];
+    const comment = `## 🤖 Generated Test Code
 
-    const output = (stdout + stderr).toLowerCase();
+*Auto-generated tests for PR #${this.prNumber} • ${timestamp}*
 
-    // If test explicitly indicated failure, it's a failure
-    if (
-      failureIndicators.some((indicator) =>
-        output.includes(indicator.toLowerCase())
-      )
-    ) {
-      return false;
-    }
+### Generated Test Code:
+\`\`\`javascript
+${cleanTestCode}
+\`\`\`
 
-    // If test explicitly indicated success, it's a success
-    if (
-      successIndicators.some((indicator) =>
-        output.includes(indicator.toLowerCase())
-      )
-    ) {
-      return true;
-    }
+### Status:
+✅ **Test code generated successfully**
 
-    // If no explicit indicators, fall back to exit code
-    return exitCode === 0;
-  }
+> **Note**: Test code has been generated based on the PR changes. You can copy this code to run the tests in your environment.
 
-  async executeTests(testFilePath) {
-    try {
-      // Install magnitude-core if not already installed
-      await this.ensureMagnitudeInstalled();
-
-      // Run the test file directly with Node.js
-      const { stdout, stderr } = await execAsync(
-        `node ${path.basename(testFilePath)}`,
-        {
-          timeout: this.timeout,
-          cwd: this.outputDir,
-          env: {
-            ...process.env,
-            NODE_ENV: "test",
-            ANTHROPIC_API_KEY: this.claudeApiKey,
-            ...(this.testUserEmail && { TEST_USER_EMAIL: this.testUserEmail }),
-            ...(this.testUserPassword && {
-              TEST_USER_PASSWORD: this.testUserPassword,
-            }),
-          },
-        }
-      );
-
-      return {
-        success: true,
-        stdout,
-        stderr,
-        testFilePath,
-      };
-    } catch (error) {
-      // Don't automatically fail on browser errors - check test output instead
-      const testSuccess = this.determineTestSuccess(
-        error.stdout || "",
-        error.stderr || "",
-        error.code || 1
-      );
-
-      return {
-        success: testSuccess,
-        error: testSuccess ? undefined : error.message,
-        stdout: error.stdout || "",
-        stderr: error.stderr || "",
-        testFilePath,
-        browserErrors:
-          !testSuccess && error.code !== 1 ? [error.message] : undefined,
-      };
-    }
-  }
-
-  async commentResults(testResults) {
-    const comment = this.formatResultsComment(testResults);
+---
+<sub>Generated by [PR Test Generator](https://github.com/yourusername/pr-test-generator)</sub>`;
 
     await this.github.issues.createComment({
       owner: this.owner,
@@ -819,344 +742,6 @@ Return ONLY the complete, executable test code. No explanations or markdown form
     });
   }
 
-  stripAnsiCodes(text) {
-    // Remove ANSI escape codes (colors, formatting, etc.)
-    return text.replace(/\u001b\[[0-9;]*m/g, "");
-  }
-
-  sanitizeOutput(text) {
-    if (!text) return text;
-
-    let sanitized = text;
-
-    // Only sanitize API keys for security
-    sanitized = sanitized.replace(/sk-[a-zA-Z0-9]{48}/g, "[API_KEY_REDACTED]");
-    sanitized = sanitized.replace(
-      /ANTHROPIC_API_KEY[=:]\s*[^\s]+/gi,
-      "ANTHROPIC_API_KEY=[API_KEY_REDACTED]"
-    );
-
-    return sanitized;
-  }
-
-  // Sanitized logging wrappers
-  safeLog(level, message) {
-    const sanitizedMessage = this.sanitizeOutput(message);
-    core[level](sanitizedMessage);
-  }
-
-  safeInfo(message) {
-    this.safeLog("info", message);
-  }
-
-  safeError(message) {
-    this.safeLog("error", message);
-  }
-
-  safeWarning(message) {
-    this.safeLog("warning", message);
-  }
-
-  safeDebug(message) {
-    this.safeLog("debug", message);
-  }
-
-  parseTestResults(stdout) {
-    if (!stdout || stdout.trim() === "No output") {
-      return "❌ **No test output detected** - The test may have failed to run or produce output.";
-    }
-
-    const lines = stdout.split("\n");
-    const actions = [];
-    const completedTasks = [];
-    const failures = [];
-    let sortingTest = false;
-    let extractedData = [];
-
-    // Parse the output to identify test actions and outcomes
-    let loginDetected = false;
-    let loginSkipped = false;
-    let credentialsFound = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      // Check for credential validation
-      if (
-        line.includes("Authentication credentials check") ||
-        line.includes("TEST_USER_EMAIL available") ||
-        line.includes("TEST_USER_PASSWORD available")
-      ) {
-        credentialsFound = true;
-      }
-
-      // Track test actions
-      if (line.includes("◆ [act]")) {
-        const action = line.replace("◆ [act]", "").trim();
-        actions.push(action);
-
-        // Check if this is a sorting test
-        if (
-          action.toLowerCase().includes("sort") ||
-          action.toLowerCase().includes("column header")
-        ) {
-          sortingTest = true;
-        }
-
-        // Check for login detection
-        if (
-          action.toLowerCase().includes("check login") ||
-          action.toLowerCase().includes("already logged in")
-        ) {
-          loginDetected = true;
-        }
-
-        // Check for login skip
-        if (
-          action.toLowerCase().includes("already logged in, proceeding") ||
-          action.toLowerCase().includes("user is already logged in")
-        ) {
-          loginSkipped = true;
-        }
-      }
-
-      // Track completed tasks
-      if (line.includes("✓ done")) {
-        const prevLines = lines.slice(Math.max(0, i - 5), i);
-        const actionLine = prevLines.find((l) => l.includes("◆ [act]"));
-        if (actionLine) {
-          completedTasks.push(actionLine.replace("◆ [act]", "").trim());
-        }
-      }
-
-      // Track extraction results
-      if (line.includes("⛏ [extract]")) {
-        const extractAction = line.replace("⛏ [extract]", "").trim();
-        extractedData.push(extractAction);
-      }
-
-      // Track failures
-      if (
-        line.includes("✗") ||
-        line.includes("FAILED") ||
-        line.includes("ERROR")
-      ) {
-        failures.push(line);
-      }
-    }
-
-    // Generate analysis
-    let analysis = [];
-
-    // Overall test execution
-    if (actions.length > 0) {
-      analysis.push(`**📋 Test Actions Executed:** ${actions.length}`);
-      analysis.push(`**✅ Completed Tasks:** ${completedTasks.length}`);
-
-      if (failures.length > 0) {
-        analysis.push(`**❌ Failures Detected:** ${failures.length}`);
-      }
-    }
-
-    // Specific sorting test analysis
-    if (sortingTest) {
-      analysis.push(`\n**🔍 Sorting Test Analysis:**`);
-
-      // Look for URL changes indicating sorting
-      const urlChanges = lines.filter(
-        (line) =>
-          line.includes("sortColumn") ||
-          line.includes("sortOrder") ||
-          (line.includes("sort") && line.includes("URL"))
-      );
-
-      if (urlChanges.length > 0) {
-        analysis.push(
-          `- ✅ **Sorting triggered:** URL parameters were updated (${urlChanges.length} changes detected)`
-        );
-      }
-
-      // Look for before/after data comparison
-      const beforeData = [];
-      const afterData = [];
-      let collectingData = false;
-
-      for (const line of lines) {
-        if (line.includes("before") || line.includes("original order")) {
-          collectingData = true;
-        }
-        if (
-          line.includes("after") ||
-          line.includes("new order") ||
-          line.includes("sorted")
-        ) {
-          collectingData = false;
-        }
-
-        // Look for state/location names
-        if (
-          line.includes("Nebraska") ||
-          line.includes("Virginia") ||
-          line.includes("Alabama")
-        ) {
-          if (collectingData) {
-            beforeData.push(line);
-          } else {
-            afterData.push(line);
-          }
-        }
-      }
-
-      if (extractedData.length > 0) {
-        analysis.push(
-          `- 📊 **Data extraction:** ${extractedData.length} extraction operations performed`
-        );
-      }
-
-      // Determine if sorting actually worked
-      const sortingWorked = urlChanges.length > 0 || afterData.length > 0;
-      if (sortingWorked) {
-        analysis.push(
-          `- ✅ **Sorting Result:** Sorting functionality appears to be working correctly`
-        );
-      } else {
-        analysis.push(
-          `- ⚠️ **Sorting Result:** Could not definitively verify sorting behavior from output`
-        );
-      }
-    }
-
-    // Login detection analysis
-    if (loginDetected || loginSkipped || credentialsFound) {
-      analysis.push(`\n**🔐 Authentication Analysis:**`);
-
-      if (credentialsFound) {
-        analysis.push(
-          `- ✅ **Credentials verified:** Authentication credentials were found in environment variables`
-        );
-      }
-
-      if (loginSkipped) {
-        analysis.push(
-          `- ✅ **Smart login detection:** User was already logged in, login steps were skipped`
-        );
-        analysis.push(
-          `- ⚡ **Efficiency:** Test avoided unnecessary login attempts`
-        );
-      } else if (loginDetected) {
-        analysis.push(
-          `- 🔍 **Login detection:** Test checked for existing login state`
-        );
-
-        // Check if login was actually performed
-        const loginActions = actions.filter(
-          (action) =>
-            action.toLowerCase().includes("login") ||
-            action.toLowerCase().includes("sign in") ||
-            action.toLowerCase().includes("authenticate")
-        );
-
-        if (loginActions.length > 0) {
-          analysis.push(
-            `- 🔑 **Login performed:** Found ${loginActions.length} login-related actions`
-          );
-        }
-      }
-    }
-
-    // Action-specific analysis
-    if (completedTasks.length > 0) {
-      analysis.push(`\n**📝 Completed Actions:**`);
-      completedTasks.forEach((task) => {
-        analysis.push(`- ✅ ${task}`);
-      });
-    }
-
-    // Overall assessment
-    analysis.push(`\n**🎯 Overall Assessment:**`);
-    if (failures.length === 0 && completedTasks.length > 0) {
-      analysis.push(
-        `- ✅ **Test execution:** All planned actions completed successfully`
-      );
-      analysis.push(
-        `- ✅ **Functionality:** The tested features appear to be working as expected`
-      );
-    } else if (failures.length > 0) {
-      analysis.push(
-        `- ❌ **Test execution:** Some actions failed or encountered errors`
-      );
-      analysis.push(
-        `- ⚠️ **Functionality:** Review the failures to determine if code changes need adjustment`
-      );
-    } else {
-      analysis.push(
-        `- ⚠️ **Test execution:** Limited test output available for analysis`
-      );
-    }
-
-    return analysis.join("\n");
-  }
-
-  formatResultsComment(testResults) {
-    const timestamp = new Date().toISOString();
-    const emoji = testResults.success ? "🎉" : "❌";
-    const status = testResults.success ? "PASSED" : "FAILED";
-
-    // First strip ANSI codes but don't sanitize yet (agent needs to see actual credentials)
-    const rawStdout = testResults.stdout
-      ? this.stripAnsiCodes(testResults.stdout)
-      : "No output";
-    const rawStderr = testResults.stderr
-      ? this.stripAnsiCodes(testResults.stderr)
-      : "";
-
-    // Parse test results using raw output (with credentials visible)
-    const testAnalysis = this.parseTestResults(rawStdout);
-
-    // Now sanitize for display in comments (but not for analysis)
-    const cleanStdout =
-      rawStdout !== "No output" ? this.sanitizeOutput(rawStdout) : "No output";
-    const cleanStderr = rawStderr ? this.sanitizeOutput(rawStderr) : "";
-
-    return `## ${emoji} Generated Tests ${status}
-
-*Auto-generated tests for PR #${this.prNumber} • ${timestamp}*
-
-### Test Results:
-\`\`\`
-${cleanStdout}
-\`\`\`
-
-### Test Analysis:
-${testAnalysis}
-
-${cleanStderr ? `### Errors:\n\`\`\`\n${cleanStderr}\n\`\`\`` : ""}
-
-${
-  testResults.browserErrors && testResults.browserErrors.length > 0
-    ? `### Browser Errors (Non-blocking):\n\`\`\`\n${testResults.browserErrors
-        .map((error) => this.sanitizeOutput(error))
-        .join(
-          "\n"
-        )}\n\`\`\`\n\n> **Note**: These browser errors were detected but did not prevent the test from completing its intended actions.`
-    : ""
-}
-
-### Test File:
-- **Location**: \`${testResults.testFilePath}\`
-- **Status**: ${
-      testResults.success ? "✅ Tests executed successfully" : "❌ Tests failed"
-    }
-
-${
-  testResults.success
-    ? "> **Note**: Test success indicates the generated tests ran without errors. Review the test logic to ensure it properly validates your changes."
-    : "> **Note**: Test failures may indicate issues with the generated tests or the code changes. Please review and adjust as needed."
-}
-
----
-<sub>Generated by [PR Test Generator](https://github.com/yourusername/pr-test-generator)</sub>`;
-  }
 
   async commentSkippedTests() {
     const timestamp = new Date().toISOString();
@@ -1222,45 +807,6 @@ Please check the action logs for more details.
     }
   }
 
-  async ensureMagnitudeInstalled() {
-    try {
-      await execAsync("npm list magnitude-core", { cwd: this.outputDir });
-      core.debug("✅ Magnitude already installed");
-    } catch (error) {
-      core.info("📦 Installing Magnitude...");
-
-      // Create package.json if it doesn't exist
-      try {
-        await fs.access(path.join(this.outputDir, "package.json"));
-      } catch {
-        await execAsync("npm init -y", { cwd: this.outputDir });
-      }
-
-      await execAsync("npm install magnitude-core dotenv playwright", {
-        cwd: this.outputDir,
-      });
-      core.info("✅ Magnitude and dependencies installed");
-
-      // Install Playwright browsers
-      core.info("🌐 Installing Playwright browsers...");
-      try {
-        await execAsync("npx playwright install --with-deps", {
-          cwd: this.outputDir,
-          timeout: 300000, // 5 minutes timeout for browser downloads
-        });
-        core.info("✅ Playwright browsers installed");
-      } catch (error) {
-        core.warning(`Playwright install failed: ${error.message}`);
-        // Try alternative installation method
-        core.info("🔄 Trying alternative Playwright installation...");
-        await execAsync("npx playwright install chromium --with-deps", {
-          cwd: this.outputDir,
-          timeout: 300000,
-        });
-        core.info("✅ Playwright Chromium installed");
-      }
-    }
-  }
 }
 
 module.exports = PRTestGenerator;

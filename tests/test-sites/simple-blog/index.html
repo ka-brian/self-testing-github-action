@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Awesome Blog - Tech & Life</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="nav-container">
+                <h1 class="blog-title">My Awesome Blog</h1>
+                <div class="nav-controls">
+                    <input type="text" id="search-input" placeholder="Search posts...">
+                    <button id="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container">
+        <div class="posts-grid" id="posts-container">
+            <article class="post" data-category="tech" data-date="2024-01-15">
+                <h2 class="post-title">Getting Started with Web Development</h2>
+                <div class="post-meta">
+                    <span class="post-date">January 15, 2024</span>
+                    <span class="post-category">Tech</span>
+                </div>
+                <div class="post-content">
+                    <p>Web development has become one of the most exciting fields in technology. Whether you're building simple websites or complex web applications, there's always something new to learn.</p>
+                    <p>In this post, we'll explore the fundamentals of HTML, CSS, and JavaScript - the three pillars of modern web development.</p>
+                </div>
+                <div class="post-actions">
+                    <button class="like-btn" data-post="1">❤️ <span class="like-count">12</span></button>
+                    <button class="comment-btn" data-post="1">💬 Comments</button>
+                </div>
+                <div class="comments-section" id="comments-1" style="display: none;">
+                    <div class="comment">
+                        <strong>Alex:</strong> Great introduction! Really helpful for beginners.
+                    </div>
+                    <div class="comment">
+                        <strong>Sarah:</strong> Looking forward to more posts like this.
+                    </div>
+                    <div class="add-comment">
+                        <input type="text" placeholder="Add a comment..." class="comment-input">
+                        <button class="submit-comment">Post</button>
+                    </div>
+                </div>
+            </article>
+
+            <article class="post" data-category="life" data-date="2024-01-10">
+                <h2 class="post-title">The Art of Work-Life Balance</h2>
+                <div class="post-meta">
+                    <span class="post-date">January 10, 2024</span>
+                    <span class="post-category">Life</span>
+                </div>
+                <div class="post-content">
+                    <p>Finding the perfect balance between work and personal life is an ongoing challenge for many professionals. It's not just about managing time, but about setting boundaries and priorities.</p>
+                    <p>Here are some strategies that have helped me maintain a healthier work-life balance over the years.</p>
+                </div>
+                <div class="post-actions">
+                    <button class="like-btn" data-post="2">❤️ <span class="like-count">8</span></button>
+                    <button class="comment-btn" data-post="2">💬 Comments</button>
+                </div>
+                <div class="comments-section" id="comments-2" style="display: none;">
+                    <div class="comment">
+                        <strong>Mike:</strong> This resonates with me so much. Thanks for sharing!
+                    </div>
+                    <div class="add-comment">
+                        <input type="text" placeholder="Add a comment..." class="comment-input">
+                        <button class="submit-comment">Post</button>
+                    </div>
+                </div>
+            </article>
+
+            <article class="post" data-category="tech" data-date="2024-01-05">
+                <h2 class="post-title">JavaScript ES6+ Features You Should Know</h2>
+                <div class="post-meta">
+                    <span class="post-date">January 5, 2024</span>
+                    <span class="post-category">Tech</span>
+                </div>
+                <div class="post-content">
+                    <p>Modern JavaScript has evolved significantly with ES6 and beyond. Features like arrow functions, destructuring, and async/await have transformed how we write JavaScript code.</p>
+                    <p>Let's dive into some of the most useful ES6+ features that every developer should master.</p>
+                </div>
+                <div class="post-actions">
+                    <button class="like-btn" data-post="3">❤️ <span class="like-count">25</span></button>
+                    <button class="comment-btn" data-post="3">💬 Comments</button>
+                </div>
+                <div class="comments-section" id="comments-3" style="display: none;">
+                    <div class="comment">
+                        <strong>Emma:</strong> Arrow functions changed everything for me!
+                    </div>
+                    <div class="comment">
+                        <strong>David:</strong> Great examples. Async/await is a game changer.
+                    </div>
+                    <div class="comment">
+                        <strong>Lisa:</strong> Could you do a follow-up on modern frameworks?
+                    </div>
+                    <div class="add-comment">
+                        <input type="text" placeholder="Add a comment..." class="comment-input">
+                        <button class="submit-comment">Post</button>
+                    </div>
+                </div>
+            </article>
+
+            <article class="post" data-category="life" data-date="2023-12-28">
+                <h2 class="post-title">Reflections on 2023</h2>
+                <div class="post-meta">
+                    <span class="post-date">December 28, 2023</span>
+                    <span class="post-category">Life</span>
+                </div>
+                <div class="post-content">
+                    <p>As the year comes to an end, it's natural to reflect on the journey we've taken. 2023 has been a year of growth, challenges, and unexpected opportunities.</p>
+                    <p>From personal achievements to professional milestones, here's what I've learned this year.</p>
+                </div>
+                <div class="post-actions">
+                    <button class="like-btn" data-post="4">❤️ <span class="like-count">15</span></button>
+                    <button class="comment-btn" data-post="4">💬 Comments</button>
+                </div>
+                <div class="comments-section" id="comments-4" style="display: none;">
+                    <div class="comment">
+                        <strong>Tom:</strong> Beautiful reflection. Here's to 2024!
+                    </div>
+                    <div class="add-comment">
+                        <input type="text" placeholder="Add a comment..." class="comment-input">
+                        <button class="submit-comment">Post</button>
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <div class="no-results" id="no-results" style="display: none;">
+            <h3>No posts found</h3>
+            <p>Try adjusting your search terms.</p>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Simple Blog. Made with ❤️ for testing purposes.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
