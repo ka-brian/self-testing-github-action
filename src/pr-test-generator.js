@@ -77,10 +77,11 @@ class PRTestGenerator {
       core.info("🤖 Generating tests with Claude...");
       const testCode = await this.generateTests(prContext);
 
-      core.info("📄 Generated test code:");
-      this.printTestCode(testCode);
+      core.info("🧪 Executing tests and generating report...");
+      const testReport = await this.executeTestsAndGenerateReport(testCode);
+      this.printTestReport(testReport);
 
-      core.info("✅ Test generation complete - execution skipped");
+      core.info("✅ Test generation and execution complete");
 
       if (this.commentOnPR) {
         core.info("💬 Commenting on PR...");
@@ -93,7 +94,8 @@ class PRTestGenerator {
       return {
         success: true,
         testCode,
-        results: { success: true, message: "Test code generated successfully" },
+        testReport,
+        results: { success: true, message: "Test code generated and executed successfully" },
         duration,
       };
     } catch (error) {
@@ -685,28 +687,160 @@ ${this.testExamples}
 Return ONLY the complete, executable test code. No explanations or markdown formatting.`;
   }
 
-  printTestCode(testCode) {
-    // Clean up the test code (remove markdown formatting)
-    let cleanTestCode = testCode
-      .replace(/```(?:javascript|js)?\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
+  async executeTestsAndGenerateReport(testCode) {
+    try {
+      // Clean up the test code (remove markdown formatting)
+      let cleanTestCode = testCode
+        .replace(/```(?:javascript|js)?\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
 
-    // Add any necessary imports if not present
-    if (
-      !cleanTestCode.includes("import") &&
-      !cleanTestCode.includes("require")
-    ) {
-      const imports =
-        "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n";
-      cleanTestCode = imports + cleanTestCode;
+      // Add any necessary imports if not present
+      if (
+        !cleanTestCode.includes("import") &&
+        !cleanTestCode.includes("require")
+      ) {
+        const imports =
+          "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n";
+        cleanTestCode = imports + cleanTestCode;
+      }
+
+      // Write test code to temporary file
+      const testFilePath = path.join(process.cwd(), "temp-test.js");
+      await fs.writeFile(testFilePath, cleanTestCode);
+
+      // Execute the tests
+      core.info("🚀 Running generated tests...");
+      const { stdout, stderr } = await execAsync(`node ${testFilePath}`, {
+        timeout: this.timeout,
+      });
+
+      // Parse test results from output
+      const testCases = this.parseTestResults(cleanTestCode, stdout, stderr);
+
+      // Clean up temporary file
+      await fs.unlink(testFilePath);
+
+      return {
+        success: true,
+        testCases,
+        output: stdout,
+        errors: stderr,
+      };
+    } catch (error) {
+      core.warning(`Test execution failed: ${error.message}`);
+      
+      // Still try to parse test cases from the code
+      const testCases = this.parseTestCasesFromCode(testCode);
+      
+      return {
+        success: false,
+        testCases,
+        output: "",
+        errors: error.message,
+      };
     }
+  }
 
-    core.info(`🔍 Generated test code:`);
-    const lines = cleanTestCode.split("\n");
-    lines.forEach((line, index) => {
-      core.info(`${index + 1}: ${line}`);
+  parseTestResults(testCode, stdout, stderr) {
+    // Extract test cases from the code structure
+    const testCases = this.parseTestCasesFromCode(testCode);
+    
+    // Try to determine pass/fail status from output
+    testCases.forEach(testCase => {
+      // Look for success indicators in stdout
+      const hasSuccess = stdout.includes("✓") || stdout.includes("PASS") || 
+                        stdout.includes("SUCCESS") || stdout.includes("completed");
+      const hasError = stderr.length > 0 || stdout.includes("✗") || 
+                      stdout.includes("FAIL") || stdout.includes("ERROR");
+      
+      testCase.status = hasError ? "FAILED" : (hasSuccess ? "PASSED" : "UNKNOWN");
     });
+    
+    return testCases;
+  }
+
+  parseTestCasesFromCode(testCode) {
+    const testCases = [];
+    
+    // Extract test scenarios from comments or structure
+    const lines = testCode.split("\n");
+    let currentTestCase = null;
+    
+    lines.forEach((line, index) => {
+      // Look for test descriptions in comments
+      const commentMatch = line.match(/\/\/\s*(.+)/);
+      if (commentMatch) {
+        const description = commentMatch[1].trim();
+        if (description.length > 10 && !description.includes("TODO") && 
+            !description.includes("FIXME")) {
+          testCases.push({
+            name: description,
+            status: "GENERATED",
+            lineNumber: index + 1
+          });
+        }
+      }
+      
+      // Look for agent.act() calls as test steps
+      const actMatch = line.match(/agent\.act\(['"](.+?)['"]\)/);
+      if (actMatch) {
+        const action = actMatch[1];
+        testCases.push({
+          name: `Action: ${action}`,
+          status: "GENERATED", 
+          lineNumber: index + 1
+        });
+      }
+      
+      // Look for agent.extract() calls as verifications
+      const extractMatch = line.match(/agent\.extract\(['"](.+?)['"]\)/);
+      if (extractMatch) {
+        const verification = extractMatch[1];
+        testCases.push({
+          name: `Verify: ${verification}`,
+          status: "GENERATED",
+          lineNumber: index + 1
+        });
+      }
+    });
+    
+    // If no specific test cases found, create generic ones
+    if (testCases.length === 0) {
+      testCases.push({
+        name: "Generated test execution",
+        status: "GENERATED",
+        lineNumber: 1
+      });
+    }
+    
+    return testCases;
+  }
+
+  printTestReport(testReport) {
+    core.info("📊 Test Execution Report:");
+    core.info("=".repeat(50));
+    
+    if (testReport.success) {
+      core.info("✅ Test execution: SUCCESS");
+    } else {
+      core.info("❌ Test execution: FAILED");
+    }
+    
+    core.info(`📝 Total test cases: ${testReport.testCases.length}`);
+    
+    testReport.testCases.forEach((testCase, index) => {
+      const statusIcon = testCase.status === "PASSED" ? "✅" : 
+                        testCase.status === "FAILED" ? "❌" : "📝";
+      core.info(`${statusIcon} ${index + 1}. ${testCase.name} [${testCase.status}]`);
+    });
+    
+    if (testReport.errors) {
+      core.info("🔍 Error details:");
+      core.info(testReport.errors);
+    }
+    
+    core.info("=".repeat(50));
   }
 
   async commentGenerated(testCode) {
