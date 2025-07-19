@@ -33489,8 +33489,8 @@ Return ONLY the complete, executable test code. No explanations or markdown form
       }
 
       // Write test code to temporary file
-      const testFilePath = __nccwpck_require__.ab + "temp-test.js";
-      await fs.writeFile(__nccwpck_require__.ab + "temp-test.js", cleanTestCode);
+      const testFilePath = path.join(process.cwd(), "temp-test.js");
+      await fs.writeFile(testFilePath, cleanTestCode);
 
       // Execute the tests
       core.info("🚀 Running generated tests...");
@@ -33502,7 +33502,7 @@ Return ONLY the complete, executable test code. No explanations or markdown form
       const testCases = this.parseTestResults(cleanTestCode, stdout, stderr);
 
       // Clean up temporary file
-      await fs.unlink(__nccwpck_require__.ab + "temp-test.js");
+      await fs.unlink(testFilePath);
 
       return {
         success: true,
