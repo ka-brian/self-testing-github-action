@@ -142,6 +142,8 @@ class LocalTestRunner {
         timeout: 60000, // 1 minute for local testing
         commentOnPR: false, // Don't try to comment in local mode
         baseUrl: scenario.baseUrl || `http://localhost:${this.blogPort}`,
+        testUserEmail: 'admin',
+        testUserPassword: 'password',
       };
 
       // Mock the GitHub API calls in PRTestGenerator

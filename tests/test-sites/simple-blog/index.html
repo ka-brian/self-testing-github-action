@@ -6,7 +6,7 @@
     <title>My Awesome Blog - Tech & Life</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="login-required">
     <header>
         <nav class="navbar">
             <div class="nav-container">
@@ -142,6 +142,26 @@
             <p>&copy; 2024 Simple Blog. Made with ❤️ for testing purposes.</p>
         </div>
     </footer>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Login Required</h2>
+            <p>Please enter your credentials to access the blog:</p>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit">Login</button>
+            </form>
+            <div id="login-error" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>

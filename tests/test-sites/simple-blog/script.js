@@ -6,10 +6,70 @@ class SimpleBlog {
         this.postsContainer = document.getElementById('posts-container');
         this.noResults = document.getElementById('no-results');
         
+        this.initializeAuth();
         this.initializeTheme();
         this.initializeEventListeners();
         this.initializeComments();
         this.initializeLikes();
+    }
+
+    initializeAuth() {
+        const isAuthenticated = localStorage.getItem('blog-authenticated') === 'true';
+        
+        if (isAuthenticated) {
+            this.showBlog();
+        } else {
+            this.showLogin();
+        }
+        
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleLogin();
+            });
+        }
+    }
+
+    showLogin() {
+        document.body.className = 'login-required';
+        const modal = document.getElementById('login-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+        }
+    }
+
+    showBlog() {
+        document.body.className = 'authenticated';
+        const modal = document.getElementById('login-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    handleLogin() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('login-error');
+        
+        if (username === 'admin' && password === 'password') {
+            localStorage.setItem('blog-authenticated', 'true');
+            this.showBlog();
+            this.showNotification('Login successful! Welcome to the blog.', 'success');
+        } else {
+            errorDiv.textContent = 'Invalid username or password. Try admin/password';
+            errorDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    logout() {
+        localStorage.removeItem('blog-authenticated');
+        this.showLogin();
+        this.showNotification('You have been logged out.', 'info');
     }
 
     initializeTheme() {

@@ -15,7 +15,6 @@ class PRTestGenerator {
     this.repo = config.repo;
     this.prNumber = config.prNumber;
     this.testExamples = config.testExamples;
-    // outputDir removed - we no longer save test files
     this.timeout = config.timeout || 120000;
     this.commentOnPR = config.commentOnPR !== false;
     this.waitForPreview = config.waitForPreview || 60;
@@ -629,7 +628,9 @@ Provide 1-5 specific test scenarios based on the changes. Keep it simple and foc
       this.testUserEmail && this.testUserPassword
         ? `
 ## Authentication Available:
-**Credentials**: \`TEST_USER_EMAIL\` and \`TEST_USER_PASSWORD\` constants are available.
+**Credentials**: Use these exact values in your tests:
+- Email: \`${this.testUserEmail}\`
+- Password: \`${this.testUserPassword}\`
 
 **Smart Login Pattern**:
 \`\`\`javascript
@@ -638,8 +639,8 @@ const isLoggedIn = await agent.extract('Check if user is already logged in');
 
 if (!isLoggedIn) {
   await agent.act('Navigate to login page');
-  await agent.act(\`Type email: \${TEST_USER_EMAIL}\`);
-  await agent.act(\`Type password: \${TEST_USER_PASSWORD}\`);
+  await agent.act('Type email: ${this.testUserEmail}');
+  await agent.act('Type password: ${this.testUserPassword}');
   await agent.act('Click login button');
 }
 // Continue with tests...
@@ -710,7 +711,7 @@ Return ONLY the complete, executable test code. No explanations or markdown form
 
   async commentGenerated(testCode) {
     const timestamp = new Date().toISOString();
-    
+
     // Clean up the test code for display
     let cleanTestCode = testCode
       .replace(/```(?:javascript|js)?\n?/g, "")
@@ -741,7 +742,6 @@ ${cleanTestCode}
       body: comment,
     });
   }
-
 
   async commentSkippedTests() {
     const timestamp = new Date().toISOString();
@@ -806,7 +806,6 @@ Please check the action logs for more details.
       core.error(`Failed to comment error: ${commentError.message}`);
     }
   }
-
 }
 
 module.exports = PRTestGenerator;
