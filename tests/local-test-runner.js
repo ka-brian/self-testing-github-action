@@ -318,6 +318,8 @@ class LocalTestRunner {
         }
         
         if (missingContent.length > 0) {
+          // For debugging, log what we actually got
+          console.log('🔍 Comment body (first 500 chars):', comment.body.substring(0, 500));
           evaluation.pass = false;
           evaluation.reason = `Comment missing expected content: ${missingContent.join(', ')}`;
           evaluation.details = missingContent.map(c => `Missing in comment: "${c}"`);
