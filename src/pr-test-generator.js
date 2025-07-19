@@ -82,7 +82,9 @@ class PRTestGenerator {
       this.printTestReport(testReport);
 
       if (testReport.executionSkipped) {
-        core.info("✅ Test generation complete (execution skipped - dependencies not available)");
+        core.info(
+          "✅ Test generation complete (execution skipped - dependencies not available)"
+        );
       } else {
         core.info("✅ Test generation and execution complete");
       }
@@ -99,11 +101,11 @@ class PRTestGenerator {
         success: true,
         testCode,
         testReport,
-        results: { 
-          success: true, 
-          message: testReport.executionSkipped ? 
-            "Test code generated successfully (execution skipped)" : 
-            "Test code generated and executed successfully" 
+        results: {
+          success: true,
+          message: testReport.executionSkipped
+            ? "Test code generated successfully (execution skipped)"
+            : "Test code generated and executed successfully",
         },
         duration,
       };
@@ -699,26 +701,31 @@ Return ONLY the complete, executable test code. No explanations or markdown form
   async executeTestsAndGenerateReport(testCode) {
     // Parse test cases from the generated code
     const testCases = this.parseTestCasesFromCode(testCode);
-    
+
     // Check if we have the required dependencies and install if needed
-    const hasMagnitudeCore = await this.checkDependency('magnitude-core');
-    
+    const hasMagnitudeCore = await this.checkDependency("magnitude-core");
+
     if (!hasMagnitudeCore) {
       core.info("📦 Installing required test dependencies...");
       try {
-        await this.installDependencies(['magnitude-core', 'dotenv']);
+        await this.installDependencies([
+          "magnitude-core",
+          "dotenv",
+          "playwright",
+        ]);
         core.info("✅ Dependencies installed successfully");
       } catch (error) {
         core.warning(`Failed to install dependencies: ${error.message}`);
         // Mark tests as ready to run since they're properly generated
-        testCases.forEach(testCase => {
+        testCases.forEach((testCase) => {
           testCase.status = "READY_TO_RUN";
         });
-        
+
         return {
           success: true,
           testCases,
-          output: "Test code generated successfully but not executed (dependency installation failed)",
+          output:
+            "Test code generated successfully but not executed (dependency installation failed)",
           errors: `Failed to install dependencies: ${error.message}`,
           executionSkipped: true,
         };
@@ -756,14 +763,18 @@ Return ONLY the complete, executable test code. No explanations or markdown form
         ...process.env,
         ANTHROPIC_API_KEY: this.claudeApiKey, // Map our Claude API key to what magnitude expects
       };
-      
+
       const { stdout, stderr } = await execAsync(`node ${testFilePath}`, {
         timeout: this.timeout,
         env: env,
       });
 
       // Parse test results from output
-      const updatedTestCases = this.parseTestResults(cleanTestCode, stdout, stderr);
+      const updatedTestCases = this.parseTestResults(
+        cleanTestCode,
+        stdout,
+        stderr
+      );
 
       // Clean up temporary file
       await fs.unlink(testFilePath);
@@ -777,12 +788,12 @@ Return ONLY the complete, executable test code. No explanations or markdown form
       };
     } catch (error) {
       core.warning(`Test execution failed: ${error.message}`);
-      
+
       // Mark test cases as ready to run since they're properly generated
-      testCases.forEach(testCase => {
+      testCases.forEach((testCase) => {
         testCase.status = "READY_TO_RUN";
       });
-      
+
       return {
         success: true, // Changed to true since test generation succeeded
         testCases,
@@ -803,21 +814,23 @@ Return ONLY the complete, executable test code. No explanations or markdown form
   }
 
   async installDependencies(packages) {
-    core.info(`📦 Installing packages: ${packages.join(', ')}`);
-    
+    core.info(`📦 Installing packages: ${packages.join(", ")}`);
+
     // Install packages using npm
-    const installCommand = `npm install ${packages.join(' ')}`;
-    
+    const installCommand = `npm install ${packages.join(" ")}`;
+
     try {
       const { stdout, stderr } = await execAsync(installCommand, {
         timeout: 120000, // 2 minutes timeout for installation
       });
-      
-      if (stderr && stderr.includes('error')) {
+
+      if (stderr && stderr.includes("error")) {
         throw new Error(stderr);
       }
-      
-      core.info(`✅ Installation completed: ${stdout.split('\n').slice(-3).join(' ')}`);
+
+      core.info(
+        `✅ Installation completed: ${stdout.split("\n").slice(-3).join(" ")}`
+      );
       return true;
     } catch (error) {
       core.error(`❌ Installation failed: ${error.message}`);
@@ -828,64 +841,79 @@ Return ONLY the complete, executable test code. No explanations or markdown form
   parseTestResults(testCode, stdout, stderr) {
     // Extract test cases from the code structure
     const testCases = this.parseTestCasesFromCode(testCode);
-    
+
     // If we have meaningful stdout/stderr, try to determine actual results
     if (stdout.length > 50 || stderr.length > 0) {
-      testCases.forEach(testCase => {
+      testCases.forEach((testCase) => {
         // Look for success indicators in stdout
-        const hasSuccess = stdout.includes("✓") || stdout.includes("PASS") || 
-                          stdout.includes("SUCCESS") || stdout.includes("completed");
-        const hasError = stderr.length > 0 || stdout.includes("✗") || 
-                        stdout.includes("FAIL") || stdout.includes("ERROR");
-        
-        testCase.status = hasError ? "FAILED" : (hasSuccess ? "PASSED" : "UNKNOWN");
+        const hasSuccess =
+          stdout.includes("✓") ||
+          stdout.includes("PASS") ||
+          stdout.includes("SUCCESS") ||
+          stdout.includes("completed");
+        const hasError =
+          stderr.length > 0 ||
+          stdout.includes("✗") ||
+          stdout.includes("FAIL") ||
+          stdout.includes("ERROR");
+
+        testCase.status = hasError
+          ? "FAILED"
+          : hasSuccess
+          ? "PASSED"
+          : "UNKNOWN";
       });
     } else {
       // If execution didn't produce meaningful output, mark as successfully generated
-      testCases.forEach(testCase => {
+      testCases.forEach((testCase) => {
         testCase.status = "READY_TO_RUN";
       });
     }
-    
+
     return testCases;
   }
 
   parseTestCasesFromCode(testCode) {
     const testCases = [];
-    
+
     // Extract test scenarios from comments that describe actual test cases
     const lines = testCode.split("\n");
-    
+
     lines.forEach((line, index) => {
       // Look for test descriptions in comments that start with "Test" or numbered patterns
-      const testCommentMatch = line.match(/\/\/\s*(Test\s*\d*:?\s*(.+)|(\d+)\.\s*(.+))/i);
+      const testCommentMatch = line.match(
+        /\/\/\s*(Test\s*\d*:?\s*(.+)|(\d+)\.\s*(.+))/i
+      );
       if (testCommentMatch) {
-        const description = testCommentMatch[2] || testCommentMatch[4] || testCommentMatch[1];
+        const description =
+          testCommentMatch[2] || testCommentMatch[4] || testCommentMatch[1];
         if (description && description.trim().length > 5) {
           testCases.push({
             name: description.trim(),
             status: "GENERATED",
-            lineNumber: index + 1
+            lineNumber: index + 1,
           });
         }
       }
     });
-    
+
     // If no test-specific comments found, look for high-level test scenarios
     if (testCases.length === 0) {
       const blockComments = testCode.match(/\/\*[\s\S]*?\*\//g) || [];
       blockComments.forEach((comment, index) => {
-        const cleanComment = comment.replace(/\/\*|\*\//g, '').trim();
-        if (cleanComment.length > 20 && !cleanComment.includes('TODO')) {
+        const cleanComment = comment.replace(/\/\*|\*\//g, "").trim();
+        if (cleanComment.length > 20 && !cleanComment.includes("TODO")) {
           testCases.push({
-            name: cleanComment.substring(0, 100) + (cleanComment.length > 100 ? '...' : ''),
+            name:
+              cleanComment.substring(0, 100) +
+              (cleanComment.length > 100 ? "..." : ""),
             status: "GENERATED",
-            lineNumber: index + 1
+            lineNumber: index + 1,
           });
         }
       });
     }
-    
+
     // Final fallback - count major test sections by looking for patterns
     if (testCases.length === 0) {
       let testCount = 1;
@@ -893,37 +921,37 @@ Return ONLY the complete, executable test code. No explanations or markdown form
         /agent\.navigate\(/,
         /await\s+agent\.act\(['"].*navigate/i,
         /await\s+agent\.act\(['"].*click.*button/i,
-        /await\s+agent\.act\(['"].*verify/i
+        /await\s+agent\.act\(['"].*verify/i,
       ];
-      
-      patterns.forEach(pattern => {
-        const matches = testCode.match(new RegExp(pattern.source, 'gi'));
+
+      patterns.forEach((pattern) => {
+        const matches = testCode.match(new RegExp(pattern.source, "gi"));
         if (matches && matches.length > 0) {
           testCases.push({
             name: `Test Scenario ${testCount++}`,
             status: "GENERATED",
-            lineNumber: 1
+            lineNumber: 1,
           });
         }
       });
     }
-    
+
     // Absolute fallback
     if (testCases.length === 0) {
       testCases.push({
         name: "Generated test execution",
         status: "GENERATED",
-        lineNumber: 1
+        lineNumber: 1,
       });
     }
-    
+
     return testCases;
   }
 
   printTestReport(testReport) {
     core.info("📊 Test Execution Report:");
     core.info("=".repeat(50));
-    
+
     if (testReport.success) {
       if (testReport.executionSkipped) {
         core.info("✅ Test generation: SUCCESS (execution skipped)");
@@ -933,25 +961,34 @@ Return ONLY the complete, executable test code. No explanations or markdown form
     } else {
       core.info("❌ Test execution: FAILED");
     }
-    
+
     core.info(`📝 Total test cases: ${testReport.testCases.length}`);
-    
+
     if (testReport.executionSkipped) {
-      core.info("📋 Tests generated and ready to run (dependencies not available for execution)");
+      core.info(
+        "📋 Tests generated and ready to run (dependencies not available for execution)"
+      );
     }
-    
+
     testReport.testCases.forEach((testCase, index) => {
-      const statusIcon = testCase.status === "PASSED" ? "✅" : 
-                        testCase.status === "FAILED" ? "❌" : 
-                        testCase.status === "READY_TO_RUN" ? "🚀" : "📝";
-      core.info(`${statusIcon} ${index + 1}. ${testCase.name} [${testCase.status}]`);
+      const statusIcon =
+        testCase.status === "PASSED"
+          ? "✅"
+          : testCase.status === "FAILED"
+          ? "❌"
+          : testCase.status === "READY_TO_RUN"
+          ? "🚀"
+          : "📝";
+      core.info(
+        `${statusIcon} ${index + 1}. ${testCase.name} [${testCase.status}]`
+      );
     });
-    
+
     if (testReport.errors && testReport.errors.length > 0) {
       core.info("🔍 Details:");
       core.info(testReport.errors);
     }
-    
+
     core.info("=".repeat(50));
   }
 
@@ -959,23 +996,40 @@ Return ONLY the complete, executable test code. No explanations or markdown form
     const timestamp = new Date().toISOString();
 
     // Generate test results summary
-    const passedCount = testReport.testCases.filter(t => t.status === "PASSED").length;
-    const failedCount = testReport.testCases.filter(t => t.status === "FAILED").length;
-    const readyToRunCount = testReport.testCases.filter(t => t.status === "READY_TO_RUN").length;
-    const generatedCount = testReport.testCases.filter(t => t.status === "GENERATED").length;
-    
+    const passedCount = testReport.testCases.filter(
+      (t) => t.status === "PASSED"
+    ).length;
+    const failedCount = testReport.testCases.filter(
+      (t) => t.status === "FAILED"
+    ).length;
+    const readyToRunCount = testReport.testCases.filter(
+      (t) => t.status === "READY_TO_RUN"
+    ).length;
+    const generatedCount = testReport.testCases.filter(
+      (t) => t.status === "GENERATED"
+    ).length;
+
     const statusIcon = testReport.success ? "✅" : "❌";
-    const overallStatus = testReport.success ? 
-      (testReport.executionSkipped ? "TESTS GENERATED" : "TESTS EXECUTED") : 
-      "EXECUTION FAILED";
+    const overallStatus = testReport.success
+      ? testReport.executionSkipped
+        ? "TESTS GENERATED"
+        : "TESTS EXECUTED"
+      : "EXECUTION FAILED";
 
     // Build test cases list
-    const testCasesList = testReport.testCases.map((testCase, index) => {
-      const statusIcon = testCase.status === "PASSED" ? "✅" : 
-                        testCase.status === "FAILED" ? "❌" : 
-                        testCase.status === "READY_TO_RUN" ? "🚀" : "📝";
-      return `${statusIcon} **${index + 1}.** ${testCase.name}`;
-    }).join("\n");
+    const testCasesList = testReport.testCases
+      .map((testCase, index) => {
+        const statusIcon =
+          testCase.status === "PASSED"
+            ? "✅"
+            : testCase.status === "FAILED"
+            ? "❌"
+            : testCase.status === "READY_TO_RUN"
+            ? "🚀"
+            : "📝";
+        return `${statusIcon} **${index + 1}.** ${testCase.name}`;
+      })
+      .join("\n");
 
     const comment = `## 🧪 Test Execution Report
 
@@ -993,15 +1047,23 @@ Return ONLY the complete, executable test code. No explanations or markdown form
 ### Test Cases:
 ${testCasesList}
 
-${testReport.executionSkipped ? `### Status:
+${
+  testReport.executionSkipped
+    ? `### Status:
 🚀 **Tests Generated Successfully** - The test cases above are ready to run. Execution was skipped because test dependencies are not available in this environment.
 
-${testReport.errors ? `**Details**: ${testReport.errors}` : ''}` : testReport.errors ? `### Error Details:
+${testReport.errors ? `**Details**: ${testReport.errors}` : ""}`
+    : testReport.errors
+    ? `### Error Details:
 \`\`\`
 ${testReport.errors}
-\`\`\`` : ''}
+\`\`\``
+    : ""
+}
 
-> **Note**: Tests were automatically generated${testReport.executionSkipped ? '' : ' and executed'} based on the PR changes.
+> **Note**: Tests were automatically generated${
+      testReport.executionSkipped ? "" : " and executed"
+    } based on the PR changes.
 
 ---
 <sub>Generated by [PR Test Generator](https://github.com/yourusername/pr-test-generator)</sub>`;
