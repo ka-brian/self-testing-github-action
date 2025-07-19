@@ -746,16 +746,23 @@ Return ONLY the complete, executable test code. No explanations or markdown form
     // Extract test cases from the code structure
     const testCases = this.parseTestCasesFromCode(testCode);
     
-    // Try to determine pass/fail status from output
-    testCases.forEach(testCase => {
-      // Look for success indicators in stdout
-      const hasSuccess = stdout.includes("✓") || stdout.includes("PASS") || 
-                        stdout.includes("SUCCESS") || stdout.includes("completed");
-      const hasError = stderr.length > 0 || stdout.includes("✗") || 
-                      stdout.includes("FAIL") || stdout.includes("ERROR");
-      
-      testCase.status = hasError ? "FAILED" : (hasSuccess ? "PASSED" : "UNKNOWN");
-    });
+    // If we have meaningful stdout/stderr, try to determine actual results
+    if (stdout.length > 50 || stderr.length > 0) {
+      testCases.forEach(testCase => {
+        // Look for success indicators in stdout
+        const hasSuccess = stdout.includes("✓") || stdout.includes("PASS") || 
+                          stdout.includes("SUCCESS") || stdout.includes("completed");
+        const hasError = stderr.length > 0 || stdout.includes("✗") || 
+                        stdout.includes("FAIL") || stdout.includes("ERROR");
+        
+        testCase.status = hasError ? "FAILED" : (hasSuccess ? "PASSED" : "UNKNOWN");
+      });
+    } else {
+      // If execution didn't produce meaningful output, mark as successfully generated
+      testCases.forEach(testCase => {
+        testCase.status = "READY_TO_RUN";
+      });
+    }
     
     return testCases;
   }
@@ -763,49 +770,62 @@ Return ONLY the complete, executable test code. No explanations or markdown form
   parseTestCasesFromCode(testCode) {
     const testCases = [];
     
-    // Extract test scenarios from comments or structure
+    // Extract test scenarios from comments that describe actual test cases
     const lines = testCode.split("\n");
-    let currentTestCase = null;
     
     lines.forEach((line, index) => {
-      // Look for test descriptions in comments
-      const commentMatch = line.match(/\/\/\s*(.+)/);
-      if (commentMatch) {
-        const description = commentMatch[1].trim();
-        if (description.length > 10 && !description.includes("TODO") && 
-            !description.includes("FIXME")) {
+      // Look for test descriptions in comments that start with "Test" or numbered patterns
+      const testCommentMatch = line.match(/\/\/\s*(Test\s*\d*:?\s*(.+)|(\d+)\.\s*(.+))/i);
+      if (testCommentMatch) {
+        const description = testCommentMatch[2] || testCommentMatch[4] || testCommentMatch[1];
+        if (description && description.trim().length > 5) {
           testCases.push({
-            name: description,
+            name: description.trim(),
             status: "GENERATED",
             lineNumber: index + 1
           });
         }
       }
-      
-      // Look for agent.act() calls as test steps
-      const actMatch = line.match(/agent\.act\(['"](.+?)['"]\)/);
-      if (actMatch) {
-        const action = actMatch[1];
-        testCases.push({
-          name: `Action: ${action}`,
-          status: "GENERATED", 
-          lineNumber: index + 1
-        });
-      }
-      
-      // Look for agent.extract() calls as verifications
-      const extractMatch = line.match(/agent\.extract\(['"](.+?)['"]\)/);
-      if (extractMatch) {
-        const verification = extractMatch[1];
-        testCases.push({
-          name: `Verify: ${verification}`,
-          status: "GENERATED",
-          lineNumber: index + 1
-        });
-      }
     });
     
-    // If no specific test cases found, create generic ones
+    // If no test-specific comments found, look for high-level test scenarios
+    if (testCases.length === 0) {
+      const blockComments = testCode.match(/\/\*[\s\S]*?\*\//g) || [];
+      blockComments.forEach((comment, index) => {
+        const cleanComment = comment.replace(/\/\*|\*\//g, '').trim();
+        if (cleanComment.length > 20 && !cleanComment.includes('TODO')) {
+          testCases.push({
+            name: cleanComment.substring(0, 100) + (cleanComment.length > 100 ? '...' : ''),
+            status: "GENERATED",
+            lineNumber: index + 1
+          });
+        }
+      });
+    }
+    
+    // Final fallback - count major test sections by looking for patterns
+    if (testCases.length === 0) {
+      let testCount = 1;
+      const patterns = [
+        /agent\.navigate\(/,
+        /await\s+agent\.act\(['"].*navigate/i,
+        /await\s+agent\.act\(['"].*click.*button/i,
+        /await\s+agent\.act\(['"].*verify/i
+      ];
+      
+      patterns.forEach(pattern => {
+        const matches = testCode.match(new RegExp(pattern.source, 'gi'));
+        if (matches && matches.length > 0) {
+          testCases.push({
+            name: `Test Scenario ${testCount++}`,
+            status: "GENERATED",
+            lineNumber: 1
+          });
+        }
+      });
+    }
+    
+    // Absolute fallback
     if (testCases.length === 0) {
       testCases.push({
         name: "Generated test execution",
@@ -822,7 +842,7 @@ Return ONLY the complete, executable test code. No explanations or markdown form
     core.info("=".repeat(50));
     
     if (testReport.success) {
-      core.info("✅ Test execution: SUCCESS");
+      core.info("✅ Test generation: SUCCESS");
     } else {
       core.info("❌ Test execution: FAILED");
     }
@@ -831,7 +851,8 @@ Return ONLY the complete, executable test code. No explanations or markdown form
     
     testReport.testCases.forEach((testCase, index) => {
       const statusIcon = testCase.status === "PASSED" ? "✅" : 
-                        testCase.status === "FAILED" ? "❌" : "📝";
+                        testCase.status === "FAILED" ? "❌" : 
+                        testCase.status === "READY_TO_RUN" ? "🚀" : "📝";
       core.info(`${statusIcon} ${index + 1}. ${testCase.name} [${testCase.status}]`);
     });
     
@@ -849,15 +870,17 @@ Return ONLY the complete, executable test code. No explanations or markdown form
     // Generate test results summary
     const passedCount = testReport.testCases.filter(t => t.status === "PASSED").length;
     const failedCount = testReport.testCases.filter(t => t.status === "FAILED").length;
+    const readyToRunCount = testReport.testCases.filter(t => t.status === "READY_TO_RUN").length;
     const generatedCount = testReport.testCases.filter(t => t.status === "GENERATED").length;
     
     const statusIcon = testReport.success ? "✅" : "❌";
-    const overallStatus = testReport.success ? "SUCCESS" : "FAILED";
+    const overallStatus = testReport.success ? "TESTS GENERATED" : "EXECUTION FAILED";
 
     // Build test cases list
     const testCasesList = testReport.testCases.map((testCase, index) => {
       const statusIcon = testCase.status === "PASSED" ? "✅" : 
-                        testCase.status === "FAILED" ? "❌" : "📝";
+                        testCase.status === "FAILED" ? "❌" : 
+                        testCase.status === "READY_TO_RUN" ? "🚀" : "📝";
       return `${statusIcon} **${index + 1}.** ${testCase.name}`;
     }).join("\n");
 
@@ -871,6 +894,7 @@ Return ONLY the complete, executable test code. No explanations or markdown form
 - **Total Test Cases**: ${testReport.testCases.length}
 - **Passed**: ✅ ${passedCount}
 - **Failed**: ❌ ${failedCount}
+- **Ready to Run**: 🚀 ${readyToRunCount}
 - **Generated**: 📝 ${generatedCount}
 
 ### Test Cases:

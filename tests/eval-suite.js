@@ -31,6 +31,40 @@ class EvalSuite {
         },
         baseUrl: "http://localhost:8080",
       },
+      {
+        id: "comment-report-test",
+        name: "Test Report Comment Generation",
+        description: "Tests that test execution report is properly formatted in PR comments",
+        mockData: {
+          prNumber: 302,
+          files: [
+            {
+              filename: "tests/test-sites/simple-blog/style.css",
+              patch: `@@ -45,7 +45,7 @@
+             .blog-post {
+                 background: #fff;
+-                border: 1px solid #ddd;
++                border: 2px solid #007acc;
+                 margin-bottom: 20px;`,
+            },
+          ],
+          previewUrls: ["http://localhost:8080"],
+        },
+        expectedOutcomes: {
+          shouldSucceed: true,
+          shouldGenerateTests: true,
+          shouldSkipUITests: false,
+          shouldCreateComment: true,
+          commentShouldContain: [
+            "Test Execution Report",
+            "Overall Status:",
+            "Test Summary:",
+            "Test Cases:",
+            "**Total Test Cases**:",
+          ],
+        },
+        baseUrl: "http://localhost:8080",
+      },
     ];
   }
 

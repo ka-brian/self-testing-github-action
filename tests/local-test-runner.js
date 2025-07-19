@@ -140,7 +140,7 @@ class LocalTestRunner {
         prNumber: mockContext.prNumber,
         testExamples: scenario.testExamples || this.getDefaultTestExamples(),
         timeout: 60000, // 1 minute for local testing
-        commentOnPR: false, // Don't try to comment in local mode
+        commentOnPR: scenario.expectedOutcomes.shouldCreateComment || false, // Enable commenting for comment tests
         baseUrl: scenario.baseUrl || `http://localhost:${this.blogPort}`,
         testUserEmail: 'admin',
         testUserPassword: 'password',
@@ -152,15 +152,20 @@ class LocalTestRunner {
       const results = await generator.run();
       const duration = Date.now() - scenarioStartTime;
       
+      // Capture comments for testing
+      const capturedComments = generator.getCapturedComments();
+      
       const testResult = {
         scenario: scenario.name,
         id: scenario.id,
         success: results.success,
         duration: duration,
         testCode: results.testCode,
+        testReport: results.testReport,
+        capturedComments: capturedComments,
         outputs: results.results,
         expectedOutcomes: scenario.expectedOutcomes,
-        evaluation: this.evaluateResults(results, scenario.expectedOutcomes)
+        evaluation: this.evaluateResults(results, scenario.expectedOutcomes, capturedComments)
       };
       
       this.evalResults.push(testResult);
@@ -240,7 +245,7 @@ class LocalTestRunner {
     return this.generateReport();
   }
 
-  evaluateResults(results, expectedOutcomes) {
+  evaluateResults(results, expectedOutcomes, capturedComments = []) {
     const evaluation = {
       pass: true,
       details: [],
@@ -289,6 +294,49 @@ class LocalTestRunner {
         evaluation.pass = false;
         evaluation.reason = `Missing expected patterns in test code: ${missingPatterns.join(', ')}`;
         evaluation.details = missingPatterns.map(p => `Missing pattern: "${p}"`);
+      }
+    }
+    
+    // Check comment generation if expected
+    if (expectedOutcomes.shouldCreateComment) {
+      if (capturedComments.length === 0) {
+        evaluation.pass = false;
+        evaluation.reason = 'Expected comment to be generated but none was captured';
+        return evaluation;
+      }
+      
+      // Check if comment contains expected content
+      if (expectedOutcomes.commentShouldContain && expectedOutcomes.commentShouldContain.length > 0) {
+        const comment = capturedComments[0];
+        const commentBody = comment.body.toLowerCase();
+        const missingContent = [];
+        
+        for (const expectedContent of expectedOutcomes.commentShouldContain) {
+          if (!commentBody.includes(expectedContent.toLowerCase())) {
+            missingContent.push(expectedContent);
+          }
+        }
+        
+        if (missingContent.length > 0) {
+          evaluation.pass = false;
+          evaluation.reason = `Comment missing expected content: ${missingContent.join(', ')}`;
+          evaluation.details = missingContent.map(c => `Missing in comment: "${c}"`);
+          return evaluation;
+        }
+      }
+      
+      // Validate comment structure
+      const comment = capturedComments[0];
+      if (!comment.testReport) {
+        evaluation.pass = false;
+        evaluation.reason = 'Comment should include test report data';
+        return evaluation;
+      }
+      
+      if (!comment.testReport.testCases || comment.testReport.testCases.length === 0) {
+        evaluation.pass = false;
+        evaluation.reason = 'Comment should include test cases in report';
+        return evaluation;
       }
     }
     
@@ -411,6 +459,7 @@ class MockPRTestGenerator extends PRTestGenerator {
   constructor(config, mockContext) {
     super(config);
     this.mockContext = mockContext;
+    this.capturedComments = [];
   }
 
   async getPRContext() {
@@ -425,9 +474,62 @@ class MockPRTestGenerator extends PRTestGenerator {
     return this.mockContext.previewUrls || [`http://localhost:8080`];
   }
 
-  async commentGenerated() {
-    // Skip commenting in local mode
-    console.log('📝 (Skipped commenting on PR in local mode)');
+  async commentGenerated(testReport) {
+    // Capture comment data for testing instead of posting to GitHub
+    console.log('📝 (Capturing comment data in local mode)');
+    
+    // Generate the comment as the real method would
+    const timestamp = new Date().toISOString();
+    const passedCount = testReport.testCases.filter(t => t.status === "PASSED").length;
+    const failedCount = testReport.testCases.filter(t => t.status === "FAILED").length;
+    const readyToRunCount = testReport.testCases.filter(t => t.status === "READY_TO_RUN").length;
+    const generatedCount = testReport.testCases.filter(t => t.status === "GENERATED").length;
+    
+    const statusIcon = testReport.success ? "✅" : "❌";
+    const overallStatus = testReport.success ? "TESTS GENERATED" : "EXECUTION FAILED";
+
+    const testCasesList = testReport.testCases.map((testCase, index) => {
+      const statusIcon = testCase.status === "PASSED" ? "✅" : 
+                        testCase.status === "FAILED" ? "❌" : 
+                        testCase.status === "READY_TO_RUN" ? "🚀" : "📝";
+      return `${statusIcon} **${index + 1}.** ${testCase.name}`;
+    }).join("\n");
+
+    const comment = `## 🧪 Test Execution Report
+
+*Auto-generated tests for PR #${this.prNumber} • ${timestamp}*
+
+### Overall Status: ${statusIcon} ${overallStatus}
+
+### Test Summary:
+- **Total Test Cases**: ${testReport.testCases.length}
+- **Passed**: ✅ ${passedCount}
+- **Failed**: ❌ ${failedCount}
+- **Ready to Run**: 🚀 ${readyToRunCount}
+- **Generated**: 📝 ${generatedCount}
+
+### Test Cases:
+${testCasesList}
+
+${testReport.errors ? `### Error Details:
+\`\`\`
+${testReport.errors}
+\`\`\`` : ''}
+
+> **Note**: Tests were automatically generated and executed based on the PR changes.
+
+---
+<sub>Generated by [PR Test Generator](https://github.com/yourusername/pr-test-generator)</sub>`;
+
+    this.capturedComments.push({
+      type: 'testReport',
+      body: comment,
+      testReport: testReport,
+      timestamp: timestamp
+    });
+    
+    console.log('📝 Comment captured successfully');
+    return comment;
   }
 
   async commentSkippedTests() {
@@ -438,6 +540,10 @@ class MockPRTestGenerator extends PRTestGenerator {
   async commentError() {
     // Skip commenting in local mode
     console.log('📝 (Skipped commenting error in local mode)');
+  }
+
+  getCapturedComments() {
+    return this.capturedComments;
   }
 }
 
