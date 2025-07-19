@@ -33521,7 +33521,11 @@ Return ONLY the complete, executable test code. No explanations or markdown form
         !cleanTestCode.includes("require")
       ) {
         const imports =
-          "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n";
+          "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n" +
+          "// Ensure ANTHROPIC_API_KEY is available\n" +
+          "if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {\n" +
+          "  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;\n" +
+          "}\n\n";
         cleanTestCode = imports + cleanTestCode;
       }
 
@@ -33529,10 +33533,16 @@ Return ONLY the complete, executable test code. No explanations or markdown form
       const testFilePath = path.join(process.cwd(), "temp-test.js");
       await fs.writeFile(testFilePath, cleanTestCode);
 
-      // Execute the tests
+      // Execute the tests with proper environment variables
       core.info("🚀 Running generated tests...");
+      const env = {
+        ...process.env,
+        ANTHROPIC_API_KEY: this.claudeApiKey, // Map our Claude API key to what magnitude expects
+      };
+      
       const { stdout, stderr } = await execAsync(`node ${testFilePath}`, {
         timeout: this.timeout,
+        env: env,
       });
 
       // Parse test results from output
