@@ -713,6 +713,11 @@ Return ONLY the complete, executable test code. No explanations or markdown form
           "dotenv",
           "playwright",
         ]);
+        
+        // Install Playwright browser binaries
+        core.info("📦 Installing Playwright browser binaries...");
+        await this.installPlaywriteBrowsers();
+        
         core.info("✅ Dependencies installed successfully");
       } catch (error) {
         core.warning(`Failed to install dependencies: ${error.message}`);
@@ -834,6 +839,26 @@ Return ONLY the complete, executable test code. No explanations or markdown form
       return true;
     } catch (error) {
       core.error(`❌ Installation failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async installPlaywriteBrowsers() {
+    core.info("🔧 Downloading Playwright browser binaries...");
+
+    try {
+      const { stdout, stderr } = await execAsync("npx playwright install", {
+        timeout: 300000, // 5 minutes timeout for browser downloads
+      });
+
+      if (stderr && stderr.includes("error")) {
+        throw new Error(stderr);
+      }
+
+      core.info("✅ Playwright browsers installed successfully");
+      return true;
+    } catch (error) {
+      core.error(`❌ Playwright browser installation failed: ${error.message}`);
       throw error;
     }
   }
