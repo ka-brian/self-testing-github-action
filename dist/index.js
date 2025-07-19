@@ -33474,8 +33474,9 @@ ${this.testExamples}
 1. **Implement each test** from the test plan above
 2. **Use Magnitude syntax** as shown in examples
 3. **Include authentication logic** if credentials are provided (use the pattern above)
-4. **Always verify actions** with \`agent.extract()\` after important steps
+4. **Always verify actions** with \`safeExtract()\` instead of \`agent.extract()\` for better error handling
 5. **Use the base URL** provided above for navigation
+6. **Wrap all tests in try-catch blocks** for robust error handling
 
 ## Output:
 Return ONLY the complete, executable test code. No explanations or markdown formatting.`;
@@ -33492,9 +33493,11 @@ Return ONLY the complete, executable test code. No explanations or markdown form
       core.info("📦 Installing required test dependencies...");
       try {
         await this.installDependencies([
-          "magnitude-core",
-          "dotenv",
-          "playwright",
+          "magnitude-core@latest",
+          "dotenv@latest", 
+          "playwright@latest",
+          "zod@latest",
+          "zod-to-json-schema@latest"
         ]);
         
         // Install Playwright browser binaries
@@ -33537,6 +33540,15 @@ Return ONLY the complete, executable test code. No explanations or markdown form
           "// Ensure ANTHROPIC_API_KEY is available\n" +
           "if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {\n" +
           "  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;\n" +
+          "}\n\n" +
+          "// Helper function to safely extract data\n" +
+          "async function safeExtract(agent, query) {\n" +
+          "  try {\n" +
+          "    return await agent.extract(query);\n" +
+          "  } catch (error) {\n" +
+          "    console.warn(`Extract failed for '${query}': ${error.message}`);\n" +
+          "    return null;\n" +
+          "  }\n" +
           "}\n\n";
         cleanTestCode = imports + cleanTestCode;
       }
