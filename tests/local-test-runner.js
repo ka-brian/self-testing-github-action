@@ -411,16 +411,6 @@ class LocalTestRunner {
 const { startBrowserAgent } = require('magnitude-core');
 require('dotenv').config();
 
-// Helper function to safely extract data
-async function safeExtract(agent, query) {
-  try {
-    return await agent.extract(query);
-  } catch (error) {
-    console.warn(\`Extract failed for '\${query}': \${error.message}\`);
-    return null;
-  }
-}
-
 async function runBlogTests() {
   const agent = await startBrowserAgent({
     url: process.env.PREVIEW_URL || 'http://localhost:8080',
@@ -434,18 +424,18 @@ async function runBlogTests() {
   try {
     console.log('Test: Navigate to blog homepage');
     await agent.act('Navigate to the blog homepage');
-    const title = await safeExtract(agent, 'Get the main heading text');
+    const title = await agent.extract('Get the main heading text');
     console.log('Blog title:', title);
     
     console.log('Test: Search functionality');
     await agent.act('Click on the search input field');
     await agent.act('Type "tech" in the search field');
-    const results = await safeExtract(agent, 'Count the number of visible blog posts');
+    const results = await agent.extract('Count the number of visible blog posts');
     console.log('Search results:', results);
     
     console.log('Test: Theme toggle');
     await agent.act('Click the theme toggle button');
-    const theme = await safeExtract(agent, 'Check if dark theme is applied');
+    const theme = await agent.extract('Check if dark theme is applied');
     console.log('Theme changed:', theme);
     
     console.log('Test: Comment interaction');

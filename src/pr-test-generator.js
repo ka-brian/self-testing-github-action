@@ -684,20 +684,13 @@ ${baseUrlSection}
 ## Test Plan to Implement:
 ${testPlan}
 
-## Available Helper Functions:
-The following function is already available in your code - USE THIS instead of agent.extract():
-
-\`\`\`javascript
-safeExtract(agent, query)
-\`\`\`
-
 ## Test Framework Examples:
 ${this.testExamples || "No additional examples provided"}
 
 ## Requirements:
 1. **Implement each test** from the test plan above
 2. **Use Magnitude syntax** as shown in examples  
-3. **IMPORTANT: Use \`safeExtract(agent, query)\` instead of \`agent.extract(query)\`** - this function is already available
+3. **Use \`await agent.extract()\`** for checking page state
 4. **Use \`await agent.act()\`** for all interactions
 5. **Include authentication logic** if credentials are provided (use the pattern above)
 6. **Navigate to the base URL** provided above
@@ -763,19 +756,6 @@ Return ONLY the complete, executable test code. No explanations or markdown form
           "// Ensure ANTHROPIC_API_KEY is available\n" +
           "if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {\n" +
           "  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;\n" +
-          "}\n\n" +
-          "// Helper function to safely extract data\n" +
-          "async function safeExtract(agent, query) {\n" +
-          "  try {\n" +
-          "    if (!agent || typeof agent.extract !== 'function') {\n" +
-          "      console.warn(`Agent is not properly initialized for query: '${query}'`);\n" +
-          "      return null;\n" +
-          "    }\n" +
-          "    return await agent.extract(query);\n" +
-          "  } catch (error) {\n" +
-          "    console.warn(`Extract failed for '${query}': ${error.message}`);\n" +
-          "    return null;\n" +
-          "  }\n" +
           "}\n\n";
         cleanTestCode = imports + cleanTestCode;
       }
