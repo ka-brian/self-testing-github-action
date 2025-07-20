@@ -33496,8 +33496,7 @@ Return ONLY the complete, executable test code. No explanations or markdown form
           "magnitude-core@latest",
           "dotenv@latest", 
           "playwright@latest",
-          "zod@latest",
-          "zod-to-json-schema@latest"
+          "zod@latest"
         ]);
         
         // Install Playwright browser binaries
