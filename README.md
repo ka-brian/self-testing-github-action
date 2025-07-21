@@ -121,7 +121,7 @@ The action will add a comment to your PR like this:
         try {
           console.log('Test: Loading dashboard');
           await agent.act('Navigate to the dashboard page');
-          const heading = await agent.extract('Get the main dashboard heading text');
+          const heading = await agent.extract('Get the main dashboard heading text', z.string());
           console.log('Dashboard heading:', heading);
 
           console.log('Test: User interactions');
@@ -318,6 +318,7 @@ npm test
 ```
 
 This runs a comprehensive test that:
+
 - Starts a local blog server
 - Simulates a GitHub PR with HTML changes
 - Tests the full test generation pipeline

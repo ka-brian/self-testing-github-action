@@ -33431,7 +33431,7 @@ Provide 1-5 specific test scenarios based on the changes. Keep it simple and foc
 **Smart Login Pattern**:
 \`\`\`javascript
 // Check if already logged in first
-const isLoggedIn = await agent.extract('Check if user is already logged in');
+const isLoggedIn = await agent.extract('Check if user is already logged in', z.boolean());
 
 if (!isLoggedIn) {
   await agent.act('Navigate to login page');
@@ -33473,8 +33473,8 @@ ${this.testExamples || "No additional examples provided"}
 ## Requirements:
 1. **Implement each test** from the test plan above
 2. **Use Magnitude syntax** as shown in examples  
-3. **Use \`await agent.extract()\`** for checking page state
-4. **Use \`await agent.act()\`** for all interactions
+3. **Use \`await agent.extract(query, zodSchema)\`** for checking page state
+4. **Use \`await agent.act(query)\`** for all interactions
 5. **Include authentication logic** if credentials are provided (use the pattern above)
 6. **Navigate to the base URL** provided above
 
