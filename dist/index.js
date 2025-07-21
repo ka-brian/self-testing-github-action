@@ -32953,6 +32953,8 @@ ${file.patch ? file.patch.slice(0, 1000) : "No patch available"}${
 ## Instructions:
 Look carefully at the file paths and changes. If ANY file appears to be frontend-related (React components, styles, pages, UI scripts), answer YES.
 
+However, if there are UI changes that cannot be tested, for example error states that require specific non-accessible situations, skip the tests.
+
 Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not needed. Do not include any explanation.`;
 
     try {
