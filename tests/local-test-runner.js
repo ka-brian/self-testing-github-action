@@ -467,6 +467,96 @@ class MockPRTestGenerator extends PRTestGenerator {
     this.capturedComments = [];
   }
 
+  async run() {
+    const startTime = Date.now();
+
+    try {
+      const core = require("@actions/core");
+      core.info("📋 Fetching PR context...");
+      const prContext = this.mockContext.prContext;
+
+      // Check if UI testing is needed
+      const requiresUITesting = await this.claudeService.requiresUITesting(
+        prContext
+      );
+
+      if (!requiresUITesting) {
+        core.info("🚀 No UI changes detected - skipping UI tests");
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+        if (this.commentOnPR) {
+          await this.commentSkippedTests();
+        }
+
+        return {
+          success: true,
+          testFilePath: null,
+          results: {
+            success: true,
+            skipped: true,
+            reason: "No UI changes detected",
+          },
+          duration,
+        };
+      }
+
+      // Use mock preview URLs
+      if (this.baseUrl) {
+        prContext.previewUrls = [this.baseUrl];
+        core.info(`🔗 Using provided base URL: ${this.baseUrl}`);
+      } else {
+        prContext.previewUrls = this.mockContext.previewUrls || [`http://localhost:8080`];
+      }
+
+      core.info("🤖 Generating tests with Claude...");
+      const testCode = await this.generateTests(prContext);
+
+      core.info("🧪 Generating test report...");
+      const testReport = await this.testExecutor.executeTestsAndGenerateReport(
+        testCode
+      );
+      this.testReporter.printTestReport(testReport);
+
+      if (testReport.executionSkipped) {
+        core.info(
+          "✅ Test generation complete (execution skipped - dependencies not available)"
+        );
+      } else {
+        core.info("✅ Test generation and execution complete");
+      }
+
+      if (this.commentOnPR) {
+        core.info("💬 Commenting on PR...");
+        await this.commentGenerated(testReport);
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      core.info(`✅ Completed in ${duration}s`);
+
+      return {
+        success: true,
+        testCode,
+        testReport,
+        results: {
+          success: true,
+          message: testReport.executionSkipped
+            ? "Test code generated successfully (execution skipped)"
+            : "Test code generated and executed successfully",
+        },
+        duration,
+      };
+    } catch (error) {
+      const core = require("@actions/core");
+      core.error(`❌ Error: ${error.message}`);
+
+      if (this.commentOnPR) {
+        await this.commentError(error);
+      }
+
+      throw error;
+    }
+  }
+
   async getPRContext() {
     return this.mockContext.prContext;
   }
