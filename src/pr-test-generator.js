@@ -138,14 +138,24 @@ class PRTestGenerator {
     core.info("📋 Generated test plan:");
     core.info(testPlan);
 
-    // Step 2: Convert test plan to code
-    core.info("💻 Step 2: Converting test plan to executable code...");
+    // Step 2: Analyze test plan and determine URL paths/navigation
+    core.info(
+      "🧭 Step 2: Analyzing navigation paths and URL routes for tests..."
+    );
+    const navigationPaths = await this.claudeService.analyzeNavigationPaths(
+      testPlan,
+      prContext
+    );
+
+    core.info("🗺️ Generated navigation paths:");
+    core.info(navigationPaths);
+
+    // Step 3: Convert test plan to code with navigation paths
+    core.info("💻 Step 3: Converting test plan to executable code...");
     const testCode = await this.claudeService.generateTestCode(
       testPlan,
       prContext,
-      this.testExamples,
-      this.testUserEmail,
-      this.testUserPassword
+      navigationPaths
     );
 
     return testCode;

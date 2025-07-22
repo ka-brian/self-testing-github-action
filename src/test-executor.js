@@ -59,7 +59,7 @@ class TestExecutor {
         !cleanTestCode.includes("require")
       ) {
         const imports =
-          "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n" +
+          "const { startBrowserAgent } = require('magnitude-core');\nconst { z } = require('zod');\nrequire('dotenv').config();\n\n" +
           "// Ensure ANTHROPIC_API_KEY is available\n" +
           "if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {\n" +
           "  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;\n" +

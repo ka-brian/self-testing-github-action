@@ -1,10 +1,23 @@
 const { startBrowserAgent } = require('magnitude-core');
 const { z } = require('zod');
+require('dotenv').config();
 
-async function runBlogTests() {
+// Ensure ANTHROPIC_API_KEY is available
+if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {
+  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;
+}
+
+async function runTests() {
   const agent = await startBrowserAgent({
     url: 'http://localhost:8080',
     narrate: true,
+    llm: {
+      provider: 'anthropic',
+      options: {
+        model: 'claude-sonnet-4-20250514',
+        apiKey: process.env.ANTHROPIC_API_KEY
+      }
+    },
     browser: {
       launchOptions: { headless: true },
       contextOptions: { viewport: { width: 1280, height: 720 } }
@@ -12,47 +25,35 @@ async function runBlogTests() {
   });
 
   try {
-    // Check authentication
-    const isLoggedIn = await agent.extract('Check if user is already logged in', z.boolean());
-
-    if (!isLoggedIn) {
-      await agent.act('Navigate to login page');
-      await agent.act('Type email: admin');
-      await agent.act('Type password: password');
-      await agent.act('Click login button');
+    // Test 1: Verify header shows "My Awesome Blog"
+    console.log('Test 1: Checking header text');
+    await agent.act('Navigate to the homepage');
+    const headerText = await agent.extract(
+      'Get the text content of the main header',
+      z.string()
+    );
+    if (headerText !== 'My Awesome Blog') {
+      throw new Error(`Header text "${headerText}" does not match "My Awesome Blog"`);
     }
 
-    // Test 1: Verify header title on homepage
-    await agent.act('Navigate to the homepage');
-    const headerTitle = await agent.extract(
-      'Get the header title text',
-      z.string().includes('My Awesome Blog')
+    // Test 2: Verify header remains correct after refresh
+    console.log('Test 2: Checking header after refresh');
+    await agent.act('Refresh the page');
+    const headerTextAfterRefresh = await agent.extract(
+      'Get the text content of the main header',
+      z.string()
     );
+    if (headerTextAfterRefresh !== 'My Awesome Blog') {
+      throw new Error(`Header text "${headerTextAfterRefresh}" does not match "My Awesome Blog" after refresh`);
+    }
 
-    // Test 2: Verify header title remains correct when switching themes
-    const initialTitle = await agent.extract(
-      'Get the header title text in light theme',
-      z.string().includes('My Awesome Blog')
-    );
-
-    await agent.act('Click the theme toggle button');
-    
-    const darkThemeTitle = await agent.extract(
-      'Get the header title text in dark theme',
-      z.string().includes('My Awesome Blog')
-    );
-
-    console.log('All blog header tests completed successfully');
-
-  } catch (error) {
-    console.error('Test execution error:', error);
-    throw error;
+    console.log('All tests completed successfully');
   } finally {
     await agent.stop();
   }
 }
 
-runBlogTests().catch(error => {
-  console.error('Blog test suite failed:', error);
+runTests().catch(error => {
+  console.error('Test suite failed:', error);
   process.exit(1);
 });

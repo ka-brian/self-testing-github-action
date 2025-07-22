@@ -32701,6 +32701,7 @@ function wrappy (fn, cb) {
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const core = __nccwpck_require__(7484);
+const { testExample: TEST_EXAMPLE } = __nccwpck_require__(6865);
 
 class ClaudeService {
   constructor(apiKey) {
@@ -32885,8 +32886,52 @@ class ClaudeService {
     return data.content[0].text;
   }
 
-  async generateTestCode(testPlan, prContext, testExamples, testUserEmail, testUserPassword) {
-    const prompt = this.buildCodePrompt(testPlan, prContext, testExamples, testUserEmail, testUserPassword);
+  async analyzeNavigationPaths(testPlan, prContext) {
+    const prompt = this.buildNavigationPrompt(testPlan, prContext);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": this.claudeApiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Claude API request failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  }
+
+  async generateTestCode(
+    testPlan,
+    prContext,
+    navigationPaths,
+    testUserEmail,
+    testUserPassword
+  ) {
+    const prompt = this.buildCodePrompt(
+      testPlan,
+      prContext,
+      navigationPaths,
+      testUserEmail,
+      testUserPassword
+    );
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -32961,6 +33006,8 @@ ${file.patch ? file.patch.slice(0, 1000) : "No patch available"}${
 Look carefully at the file paths and changes. If ANY file appears to be frontend-related (React components, styles, pages, UI scripts), answer YES.
 
 However, if there are UI changes that cannot be tested, for example error states that require specific non-accessible situations, skip the tests.
+
+You are inside of a sandboxed test environment, so you can perform CRUD operations for the sake of the test. Please make sure that you teardown anything that you create.
 
 Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not needed. Do not include any explanation.`;
   }
@@ -33042,7 +33089,65 @@ Example for minor feature:
 Provide 1-5 specific test scenarios based on the changes. Keep it simple and focused.`;
   }
 
-  buildCodePrompt(testPlan, prContext, testExamples, testUserEmail, testUserPassword) {
+  buildNavigationPrompt(testPlan, prContext) {
+    const previewUrlsSection =
+      prContext.previewUrls.length > 0
+        ? `## Available Preview URLs:
+${prContext.previewUrls.map((url) => `- ${url}`).join("\n")}`
+        : `## Base URL:
+The tests will run against the main application (use process.env.PREVIEW_URL or fallback URL).`;
+
+    return `You are analyzing a test plan to determine the specific URL paths and navigation instructions needed for each test.
+${previewUrlsSection}
+## Repository Context:
+${Object.entries(prContext.repoContext)
+  .map(
+    ([file, content]) =>
+      `### ${file}\n\`\`\`\n${content.slice(0, 300)}${
+        content.length > 300 ? "..." : ""
+      }\n\`\`\`\n`
+  )
+  .join("\n")}
+## Pull Request Details:
+- **Title**: ${prContext.pr.title}
+- **Description**: ${prContext.pr.body || "No description provided"}
+## Test Plan:
+${testPlan}
+## Your Task:
+For each test in the test plan above, provide:
+1. The specific URL path to navigate to (e.g., "/dashboard", "/settings", "/login")
+2. Brief navigation instructions if the target UI element requires specific steps to reach
+**Important Guidelines:**
+- If a test mentions a specific page (e.g., "homepage", "dashboard", "settings"), provide the likely URL path
+- If a test is about a component that appears on multiple pages, suggest the most logical starting path
+- For authentication-protected areas, assume login will happen first and provide the post-login path
+- If unsure about exact paths, provide reasonable assumptions based on common web app conventions
+- Keep navigation instructions brief and focused
+## Output Format:
+For each test, provide:
+**Test 1**: [Brief test description]
+- **URL Path**: /path/to/page
+- **Navigation**: [Brief instructions if needed, or "Direct navigation to URL"]
+**Test 2**: [Brief test description]
+- **URL Path**: /different/path
+- **Navigation**: [Brief instructions if needed, or "Direct navigation to URL"]
+Example:
+**Test 1**: Navigate to the homepage and verify the title shows "New Title"
+- **URL Path**: /
+- **Navigation**: Direct navigation to URL
+**Test 2**: Navigate to the settings page and verify the new "Export Data" button is visible
+- **URL Path**: /settings
+- **Navigation**: Direct navigation to URL (may require authentication)
+Provide navigation details for each test in the plan.`;
+  }
+
+  buildCodePrompt(
+    testPlan,
+    prContext,
+    navigationPaths,
+    testUserEmail,
+    testUserPassword
+  ) {
     const authenticationSection =
       testUserEmail && testUserPassword
         ? `
@@ -33081,17 +33186,29 @@ Use: \`${prContext.previewUrls[0]}\`
 Use: \`http://localhost:3000\`
 `;
 
+    const navigationSection = navigationPaths
+      ? `
+## Navigation Paths and Instructions:
+${navigationPaths}
+`
+      : `
+## Navigation Paths:
+No specific navigation paths provided - use standard navigation patterns.
+`;
+
     return `Convert this test plan into executable Magnitude test code.
 
 ${authenticationSection}
 
 ${baseUrlSection}
 
+${navigationSection}
+
 ## Test Plan to Implement:
 ${testPlan}
 
 ## Test Framework Examples:
-${testExamples || "No additional examples provided"}
+${TEST_EXAMPLE}
 
 ## Requirements:
 1. **Implement each test** from the test plan above
@@ -33099,7 +33216,9 @@ ${testExamples || "No additional examples provided"}
 3. **Use \`await agent.extract(query, zodSchema)\`** for checking page state
 4. **Use \`await agent.act(query)\`** for all interactions
 5. **Include authentication logic** if credentials are provided (use the pattern above)
-6. **Navigate to the base URL** provided above
+6. **Use the navigation paths and instructions** provided above to navigate to the correct URLs for each test
+7. **Navigate to the base URL** and then to specific paths as needed for each test
+8. **DO NOT include any import statements** - startBrowserAgent, z (from zod), and dotenv are already available
 
 ## Output:
 Return ONLY the complete, executable test code. No explanations or markdown formatting.`;
@@ -33107,6 +33226,7 @@ Return ONLY the complete, executable test code. No explanations or markdown form
 }
 
 module.exports = ClaudeService;
+
 
 /***/ }),
 
@@ -33634,14 +33754,24 @@ class PRTestGenerator {
     core.info("📋 Generated test plan:");
     core.info(testPlan);
 
-    // Step 2: Convert test plan to code
-    core.info("💻 Step 2: Converting test plan to executable code...");
+    // Step 2: Analyze test plan and determine URL paths/navigation
+    core.info(
+      "🧭 Step 2: Analyzing navigation paths and URL routes for tests..."
+    );
+    const navigationPaths = await this.claudeService.analyzeNavigationPaths(
+      testPlan,
+      prContext
+    );
+
+    core.info("🗺️ Generated navigation paths:");
+    core.info(navigationPaths);
+
+    // Step 3: Convert test plan to code with navigation paths
+    core.info("💻 Step 3: Converting test plan to executable code...");
     const testCode = await this.claudeService.generateTestCode(
       testPlan,
       prContext,
-      this.testExamples,
-      this.testUserEmail,
-      this.testUserPassword
+      navigationPaths
     );
 
     return testCode;
@@ -33649,6 +33779,54 @@ class PRTestGenerator {
 }
 
 module.exports = PRTestGenerator;
+
+
+/***/ }),
+
+/***/ 6865:
+/***/ ((module) => {
+
+const TEST_EXAMPLE = `
+      async function runTests() {
+        const agent = await startBrowserAgent({
+          url: process.env.PREVIEW_URL,
+          narrate: true,
+          llm: {
+            provider: 'anthropic',
+            options: {
+              model: 'claude-sonnet-4-20250514',
+              apiKey: process.env.ANTHROPIC_API_KEY
+            }
+          },
+          browser: {
+            launchOptions: { headless: true },
+            contextOptions: { viewport: { width: 1280, height: 720 } 
+          }
+        });
+
+        try {
+          console.log('Test: Loading dashboard');
+          await agent.act('Navigate to the dashboard page');
+          const heading = await agent.extract('Get the main dashboard heading text', z.string());
+          console.log('Dashboard heading:', heading);
+
+          console.log('Test: User interactions');
+          await agent.act('Navigate to the homepage');
+          await agent.act('Click on the menu button');
+          await agent.act('Wait for the menu to open');
+
+          console.log('All tests completed successfully');
+        } finally {
+          await agent.stop();
+        }
+      }
+
+      runTests().catch(error => {
+        console.error('Test suite failed:', error);
+        process.exit(1);
+      });`;
+
+module.exports = { testExample: TEST_EXAMPLE };
 
 
 /***/ }),
@@ -33717,7 +33895,7 @@ class TestExecutor {
         !cleanTestCode.includes("require")
       ) {
         const imports =
-          "const { startBrowserAgent } = require('magnitude-core');\nrequire('dotenv').config();\n\n" +
+          "const { startBrowserAgent } = require('magnitude-core');\nconst { z } = require('zod');\nrequire('dotenv').config();\n\n" +
           "// Ensure ANTHROPIC_API_KEY is available\n" +
           "if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {\n" +
           "  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;\n" +

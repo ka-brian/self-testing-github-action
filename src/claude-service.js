@@ -1,4 +1,5 @@
 const core = require("@actions/core");
+const { testExample: TEST_EXAMPLE } = require("./test-examples.js");
 
 class ClaudeService {
   constructor(apiKey) {
@@ -183,8 +184,52 @@ class ClaudeService {
     return data.content[0].text;
   }
 
-  async generateTestCode(testPlan, prContext, testExamples, testUserEmail, testUserPassword) {
-    const prompt = this.buildCodePrompt(testPlan, prContext, testExamples, testUserEmail, testUserPassword);
+  async analyzeNavigationPaths(testPlan, prContext) {
+    const prompt = this.buildNavigationPrompt(testPlan, prContext);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": this.claudeApiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 1024,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Claude API request failed: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  }
+
+  async generateTestCode(
+    testPlan,
+    prContext,
+    navigationPaths,
+    testUserEmail,
+    testUserPassword
+  ) {
+    const prompt = this.buildCodePrompt(
+      testPlan,
+      prContext,
+      navigationPaths,
+      testUserEmail,
+      testUserPassword
+    );
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -259,6 +304,8 @@ ${file.patch ? file.patch.slice(0, 1000) : "No patch available"}${
 Look carefully at the file paths and changes. If ANY file appears to be frontend-related (React components, styles, pages, UI scripts), answer YES.
 
 However, if there are UI changes that cannot be tested, for example error states that require specific non-accessible situations, skip the tests.
+
+You are inside of a sandboxed test environment, so you can perform CRUD operations for the sake of the test. Please make sure that you teardown anything that you create.
 
 Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not needed. Do not include any explanation.`;
   }
@@ -340,7 +387,65 @@ Example for minor feature:
 Provide 1-5 specific test scenarios based on the changes. Keep it simple and focused.`;
   }
 
-  buildCodePrompt(testPlan, prContext, testExamples, testUserEmail, testUserPassword) {
+  buildNavigationPrompt(testPlan, prContext) {
+    const previewUrlsSection =
+      prContext.previewUrls.length > 0
+        ? `## Available Preview URLs:
+${prContext.previewUrls.map((url) => `- ${url}`).join("\n")}`
+        : `## Base URL:
+The tests will run against the main application (use process.env.PREVIEW_URL or fallback URL).`;
+
+    return `You are analyzing a test plan to determine the specific URL paths and navigation instructions needed for each test.
+${previewUrlsSection}
+## Repository Context:
+${Object.entries(prContext.repoContext)
+  .map(
+    ([file, content]) =>
+      `### ${file}\n\`\`\`\n${content.slice(0, 300)}${
+        content.length > 300 ? "..." : ""
+      }\n\`\`\`\n`
+  )
+  .join("\n")}
+## Pull Request Details:
+- **Title**: ${prContext.pr.title}
+- **Description**: ${prContext.pr.body || "No description provided"}
+## Test Plan:
+${testPlan}
+## Your Task:
+For each test in the test plan above, provide:
+1. The specific URL path to navigate to (e.g., "/dashboard", "/settings", "/login")
+2. Brief navigation instructions if the target UI element requires specific steps to reach
+**Important Guidelines:**
+- If a test mentions a specific page (e.g., "homepage", "dashboard", "settings"), provide the likely URL path
+- If a test is about a component that appears on multiple pages, suggest the most logical starting path
+- For authentication-protected areas, assume login will happen first and provide the post-login path
+- If unsure about exact paths, provide reasonable assumptions based on common web app conventions
+- Keep navigation instructions brief and focused
+## Output Format:
+For each test, provide:
+**Test 1**: [Brief test description]
+- **URL Path**: /path/to/page
+- **Navigation**: [Brief instructions if needed, or "Direct navigation to URL"]
+**Test 2**: [Brief test description]
+- **URL Path**: /different/path
+- **Navigation**: [Brief instructions if needed, or "Direct navigation to URL"]
+Example:
+**Test 1**: Navigate to the homepage and verify the title shows "New Title"
+- **URL Path**: /
+- **Navigation**: Direct navigation to URL
+**Test 2**: Navigate to the settings page and verify the new "Export Data" button is visible
+- **URL Path**: /settings
+- **Navigation**: Direct navigation to URL (may require authentication)
+Provide navigation details for each test in the plan.`;
+  }
+
+  buildCodePrompt(
+    testPlan,
+    prContext,
+    navigationPaths,
+    testUserEmail,
+    testUserPassword
+  ) {
     const authenticationSection =
       testUserEmail && testUserPassword
         ? `
@@ -379,17 +484,29 @@ Use: \`${prContext.previewUrls[0]}\`
 Use: \`http://localhost:3000\`
 `;
 
+    const navigationSection = navigationPaths
+      ? `
+## Navigation Paths and Instructions:
+${navigationPaths}
+`
+      : `
+## Navigation Paths:
+No specific navigation paths provided - use standard navigation patterns.
+`;
+
     return `Convert this test plan into executable Magnitude test code.
 
 ${authenticationSection}
 
 ${baseUrlSection}
 
+${navigationSection}
+
 ## Test Plan to Implement:
 ${testPlan}
 
 ## Test Framework Examples:
-${testExamples || "No additional examples provided"}
+${TEST_EXAMPLE}
 
 ## Requirements:
 1. **Implement each test** from the test plan above
@@ -397,7 +514,9 @@ ${testExamples || "No additional examples provided"}
 3. **Use \`await agent.extract(query, zodSchema)\`** for checking page state
 4. **Use \`await agent.act(query)\`** for all interactions
 5. **Include authentication logic** if credentials are provided (use the pattern above)
-6. **Navigate to the base URL** provided above
+6. **Use the navigation paths and instructions** provided above to navigate to the correct URLs for each test
+7. **Navigate to the base URL** and then to specific paths as needed for each test
+8. **DO NOT include any import statements** - startBrowserAgent, z (from zod), and dotenv are already available
 
 ## Output:
 Return ONLY the complete, executable test code. No explanations or markdown formatting.`;

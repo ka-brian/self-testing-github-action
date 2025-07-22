@@ -181,6 +181,8 @@ The action can automatically detect preview URLs from PR comments (Vercel, Netli
 3. **Authentication**: Set `test-user-email` and `test-user-password` for login-protected previews
 4. **Environment Variables**: Tests can access credentials via `process.env.TEST_USER_EMAIL` and `process.env.TEST_USER_PASSWORD`
 
+**Important Security Note**: Create a dedicated sandboxed testing environment for the test user account. This test user should have restricted permissions and access only to non-production data to prevent any potential security risks during automated testing.
+
 #### Supported Preview Platforms
 
 - Vercel (\*.vercel.app)

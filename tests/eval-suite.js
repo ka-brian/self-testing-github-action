@@ -93,51 +93,15 @@ class EvalSuite {
       console.log(testPlan);
 
       console.log("💻 Step 2: Converting test plan to executable code...");
-      
-      const testExamples = `
-Example of correct Magnitude test format:
-
-const { startBrowserAgent } = require('magnitude-core');
-const { z } = require('zod');
-
-async function main() {
-  const agent = await startBrowserAgent({
-    url: 'http://localhost:8080',
-    narrate: true
-  });
-
-  try {
-    // Navigate to page (if needed)
-    await agent.nav('http://localhost:8080');
-    
-    // Extract data with schema
-    const titleText = await agent.extract('get the text of h1.blog-title', z.string());
-    
-    // Verify result
-    console.log('Title found:', titleText);
-    if (titleText === 'My Awesome Blog') {
-      console.log('✓ Test passed: Title matches expected value');
-    } else {
-      console.log('✗ Test failed: Expected "My Awesome Blog" but got:', titleText);
-    }
-    
-  } catch (error) {
-    console.error('Test failed:', error.message);
-  } finally {
-    await agent.stop();
-  }
-}
-
-main().catch(console.error);
-`;
 
       const testCode = await claudeService.generateTestCode(
         testPlan,
         prContext,
-        testExamples, // Provide correct examples
-        null, // No test user email
-        null // No test user password
+        "admin",
+        "password"
       );
+
+      console.log("testCode", testCode);
 
       console.log("🧪 Step 3: Executing generated tests...");
       const testReport = await testExecutor.executeTestsAndGenerateReport(
@@ -181,7 +145,7 @@ main().catch(console.error);
 
   async runAll(claudeApiKey) {
     const results = [];
-    
+
     for (const scenario of this.scenarios) {
       try {
         const result = await this.runScenario(scenario.id, claudeApiKey);
@@ -196,9 +160,13 @@ main().catch(console.error);
     }
 
     console.log("\n🎯 Summary:");
-    results.forEach(result => {
+    results.forEach((result) => {
       const status = result.success ? "✅" : "❌";
-      console.log(`${status} ${result.scenario}: ${result.success ? "PASSED" : result.error}`);
+      console.log(
+        `${status} ${result.scenario}: ${
+          result.success ? "PASSED" : result.error
+        }`
+      );
     });
 
     return results;
@@ -242,13 +210,16 @@ if (require.main === module) {
   }
 
   const scenarioId = process.argv[2] || "simple-copy-change";
-  
-  evalSuite.runScenario(scenarioId, claudeApiKey)
-    .then(result => {
-      console.log(`\n🎉 Eval suite completed successfully for scenario: ${result.scenario}`);
+
+  evalSuite
+    .runScenario(scenarioId, claudeApiKey)
+    .then((result) => {
+      console.log(
+        `\n🎉 Eval suite completed successfully for scenario: ${result.scenario}`
+      );
       process.exit(0);
     })
-    .catch(error => {
+    .catch((error) => {
       console.error(`\n💥 Eval suite failed:`, error.message);
       process.exit(1);
     });
