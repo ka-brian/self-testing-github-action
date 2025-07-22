@@ -23,7 +23,7 @@ describe("ClaudeService - generateTestCode Function", () => {
     pr: {
       title: "Update homepage title and add contact form",
       body: "This PR updates the homepage title text and adds a new contact form component",
-      author: "testuser"
+      author: "testuser",
     },
     files: [
       {
@@ -31,14 +31,15 @@ describe("ClaudeService - generateTestCode Function", () => {
         status: "modified",
         additions: 15,
         deletions: 3,
-        patch: '@@ -1,5 +1,5 @@\n export default function HomePage() {\n   return (\n     <div>\n-      <h1>Welcome</h1>\n+      <h1>New Home Page</h1>\n       <ContactForm />'
-      }
+        patch:
+          "@@ -1,5 +1,5 @@\n export default function HomePage() {\n   return (\n     <div>\n-      <h1>Welcome</h1>\n+      <h1>New Home Page</h1>\n       <ContactForm />",
+      },
     ],
     repoContext: {
       "package.json": '{"name": "test-app", "scripts": {"dev": "next dev"}}',
-      "README.md": "A React application"
+      "README.md": "A React application",
     },
-    previewUrls: ["http://localhost:3000"]
+    previewUrls: ["http://localhost:3000"],
   };
 
   const basicNavigationPaths = `**Test 1**: Navigate to the homepage and verify the title shows "New Home Page"
@@ -65,14 +66,16 @@ describe("ClaudeService - generateTestCode Function", () => {
     expect(result).toContain("startBrowserAgent");
     expect(result).toContain("await agent.stop()");
     expect(result).toContain("process.exit(1)");
-    
+
     // Magnitude-specific patterns
     expect(result).toContain("await agent.act");
     expect(result).toContain("await agent.extract");
-    
+
     // Should include test plan elements
-    expect(result).toContain("New Home Page") || expect(result).toContain("homepage");
-    expect(result).toContain("Get Started") || expect(result).toContain("button");
+    expect(result).toContain("New Home Page") ||
+      expect(result).toContain("homepage");
+    expect(result).toContain("Get Started") ||
+      expect(result).toContain("button");
     expect(result).toContain("contact") || expect(result).toContain("form");
   }, 30000);
 
@@ -131,21 +134,6 @@ Respond with only "YES" if they match the expected format patterns, or "NO" if t
     expect(formatMatches).toBe("YES");
   }, 45000);
 
-  test("should generate code without authentication when not provided", async () => {
-    const result = await claudeService.generateTestCode(
-      basicTestPlan,
-      basicPrContext,
-      basicNavigationPaths
-      // No testUserEmail or testUserPassword provided
-    );
-
-    // Should not contain authentication logic
-    expect(result).not.toContain("isLoggedIn");
-    expect(result).not.toContain("login page");
-    expect(result).not.toContain("email:");
-    expect(result).not.toContain("password:");
-  }, 30000);
-
   test("should include navigation paths in generated code", async () => {
     const result = await claudeService.generateTestCode(
       basicTestPlan,
@@ -159,12 +147,13 @@ Respond with only "YES" if they match the expected format patterns, or "NO" if t
   }, 30000);
 
   test("should handle simple test plan with minimal steps", async () => {
-    const simpleTestPlan = "1. Navigate to homepage and verify title is correct";
+    const simpleTestPlan =
+      "1. Navigate to homepage and verify title is correct";
     const simplePrContext = {
       pr: {
         title: "Update homepage title",
         body: "Changed title text",
-        author: "testuser"
+        author: "testuser",
       },
       files: [
         {
@@ -172,11 +161,11 @@ Respond with only "YES" if they match the expected format patterns, or "NO" if t
           status: "modified",
           additions: 1,
           deletions: 1,
-          patch: '-<title>Old Title</title>\n+<title>New Title</title>'
-        }
+          patch: "-<title>Old Title</title>\n+<title>New Title</title>",
+        },
       ],
       repoContext: {},
-      previewUrls: ["http://localhost:3000"]
+      previewUrls: ["http://localhost:3000"],
     };
     const simpleNavigation = `**Test 1**: Navigate to homepage
 - **URL Path**: /

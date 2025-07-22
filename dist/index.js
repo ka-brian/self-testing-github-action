@@ -32918,20 +32918,8 @@ class ClaudeService {
     return data.content[0].text;
   }
 
-  async generateTestCode(
-    testPlan,
-    prContext,
-    navigationPaths,
-    testUserEmail,
-    testUserPassword
-  ) {
-    const prompt = this.buildCodePrompt(
-      testPlan,
-      prContext,
-      navigationPaths,
-      testUserEmail,
-      testUserPassword
-    );
+  async generateTestCode(testPlan, prContext, navigationPaths) {
+    const prompt = this.buildCodePrompt(testPlan, prContext, navigationPaths);
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -33141,20 +33129,14 @@ Example:
 Provide navigation details for each test in the plan.`;
   }
 
-  buildCodePrompt(
-    testPlan,
-    prContext,
-    navigationPaths,
-    testUserEmail,
-    testUserPassword
-  ) {
+  buildCodePrompt(testPlan, prContext, navigationPaths) {
     const authenticationSection =
-      testUserEmail && testUserPassword
+      process.env.TEST_USER_EMAIL && process.env.TEST_USER_PASSWORD
         ? `
 ## Authentication Available:
 **Credentials**: Use these exact values in your tests:
-- Email: \`${testUserEmail}\`
-- Password: \`${testUserPassword}\`
+- Email: \`${process.env.TEST_USER_EMAIL}\`
+- Password: \`${process.env.TEST_USER_PASSWORD}\`
 
 **Smart Login Pattern**:
 \`\`\`javascript
@@ -33163,8 +33145,8 @@ const isLoggedIn = await agent.extract('Check if user is already logged in', z.b
 
 if (!isLoggedIn) {
   await agent.act('Navigate to login page');
-  await agent.act('Type email: ${testUserEmail}');
-  await agent.act('Type password: ${testUserPassword}');
+  await agent.act('Type email: ${process.env.TEST_USER_EMAIL}');
+  await agent.act('Type password: ${process.env.TEST_USER_PASSWORD}');
   await agent.act('Click login button');
 }
 // Continue with tests...
@@ -33546,8 +33528,6 @@ async function run() {
     const outputDir = core.getInput("output-dir");
     const timeout = parseInt(core.getInput("timeout")) * 1000;
     const commentOnPR = core.getInput("comment-on-pr") === "true";
-    const testUserEmail = core.getInput("test-user-email");
-    const testUserPassword = core.getInput("test-user-password");
 
     // Get GitHub context
     const context = github.context;
@@ -33568,8 +33548,6 @@ async function run() {
       outputDir,
       timeout,
       commentOnPR,
-      testUserEmail,
-      testUserPassword,
     };
 
     core.info(`🚀 Starting test generation for PR #${config.prNumber}`);
@@ -33639,8 +33617,6 @@ class PRTestGenerator {
     this.commentOnPR = config.commentOnPR !== false;
     this.waitForPreview = config.waitForPreview || 60;
     this.baseUrl = config.baseUrl;
-    this.testUserEmail = config.testUserEmail;
-    this.testUserPassword = config.testUserPassword;
   }
 
   async run() {

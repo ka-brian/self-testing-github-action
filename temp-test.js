@@ -25,27 +25,35 @@ async function runTests() {
   });
 
   try {
-    // Test 1: Verify header shows "My Awesome Blog"
-    console.log('Test 1: Checking header text');
-    await agent.act('Navigate to the homepage');
-    const headerText = await agent.extract(
-      'Get the text content of the main header',
-      z.string()
-    );
-    if (headerText !== 'My Awesome Blog') {
-      throw new Error(`Header text "${headerText}" does not match "My Awesome Blog"`);
+    // Smart login check
+    const isLoggedIn = await agent.extract('Check if user is already logged in', z.boolean());
+    
+    if (!isLoggedIn) {
+      await agent.act('Navigate to login page');
+      await agent.act('Type email: admin');
+      await agent.act('Type password: password');
+      await agent.act('Click login button');
     }
 
-    // Test 2: Verify header remains correct after refresh
-    console.log('Test 2: Checking header after refresh');
-    await agent.act('Refresh the page');
-    const headerTextAfterRefresh = await agent.extract(
-      'Get the text content of the main header',
-      z.string()
-    );
-    if (headerTextAfterRefresh !== 'My Awesome Blog') {
-      throw new Error(`Header text "${headerTextAfterRefresh}" does not match "My Awesome Blog" after refresh`);
+    // Test 1: Verify header shows "My Awesome Blog"
+    console.log('Test 1: Verifying header title');
+    await agent.act('Navigate to the homepage');
+    const headerTitle = await agent.extract('Get the main header title text', z.string());
+    
+    if (headerTitle !== 'My Awesome Blog') {
+      throw new Error(`Header title "${headerTitle}" does not match expected "My Awesome Blog"`);
     }
+    console.log('Test 1 passed: Header shows correct title');
+
+    // Test 2: Verify header remains correct after refresh
+    console.log('Test 2: Verifying header after page refresh');
+    await agent.act('Refresh the page');
+    const headerTitleAfterRefresh = await agent.extract('Get the main header title text', z.string());
+    
+    if (headerTitleAfterRefresh !== 'My Awesome Blog') {
+      throw new Error(`Header title "${headerTitleAfterRefresh}" does not match expected "My Awesome Blog" after refresh`);
+    }
+    console.log('Test 2 passed: Header shows correct title after refresh');
 
     console.log('All tests completed successfully');
   } finally {

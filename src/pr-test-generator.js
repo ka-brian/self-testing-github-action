@@ -23,8 +23,6 @@ class PRTestGenerator {
     this.commentOnPR = config.commentOnPR !== false;
     this.waitForPreview = config.waitForPreview || 60;
     this.baseUrl = config.baseUrl;
-    this.testUserEmail = config.testUserEmail;
-    this.testUserPassword = config.testUserPassword;
   }
 
   async run() {
