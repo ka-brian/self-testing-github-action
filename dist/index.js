@@ -33539,6 +33539,19 @@ async function run() {
     const outputDir = core.getInput("output-dir");
     const timeout = 600000;
     const commentOnPR = core.getInput("comment-on-pr") === "true";
+    const baseUrl = core.getInput("base-url");
+    const waitForPreview = parseInt(core.getInput("wait-for-preview")) || 60;
+    
+    // Get authentication inputs and set as environment variables
+    const testUserEmail = core.getInput("test-user-email");
+    const testUserPassword = core.getInput("test-user-password");
+    
+    if (testUserEmail) {
+      process.env.TEST_USER_EMAIL = testUserEmail;
+    }
+    if (testUserPassword) {
+      process.env.TEST_USER_PASSWORD = testUserPassword;
+    }
 
     // Get GitHub context
     const context = github.context;
@@ -33559,6 +33572,8 @@ async function run() {
       outputDir,
       timeout,
       commentOnPR,
+      baseUrl,
+      waitForPreview,
     };
 
     core.info(`🚀 Starting test generation for PR #${config.prNumber}`);
