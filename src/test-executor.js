@@ -54,18 +54,18 @@ class TestExecutor {
         .replace(/```\n?/g, "")
         .trim();
 
-      if (
-        !cleanTestCode.includes("import") &&
-        !cleanTestCode.includes("require")
-      ) {
-        const imports =
-          "const { startBrowserAgent } = require('magnitude-core');\nconst { z } = require('zod');\nrequire('dotenv').config();\n\n" +
-          "// Ensure ANTHROPIC_API_KEY is available\n" +
-          "if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {\n" +
-          "  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;\n" +
-          "}\n\n";
-        cleanTestCode = imports + cleanTestCode;
-      }
+      // if (
+      //   !cleanTestCode.includes("import") &&
+      //   !cleanTestCode.includes("require")
+      // ) {
+      const imports =
+        "const { startBrowserAgent } = require('magnitude-core');\nconst { z } = require('zod');\nrequire('dotenv').config();\n\n" +
+        "// Ensure ANTHROPIC_API_KEY is available\n" +
+        "if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {\n" +
+        "  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;\n" +
+        "}\n\n";
+      cleanTestCode = imports + cleanTestCode;
+      // }
 
       const testFilePath = path.join(process.cwd(), "temp-test.js");
       await fs.writeFile(testFilePath, cleanTestCode);
