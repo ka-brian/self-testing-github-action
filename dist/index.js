@@ -32931,6 +32931,7 @@ class ClaudeService {
 
   async generateTestCode(testPlan, prContext, navigationPaths) {
     const prompt = this.buildCodePrompt(testPlan, prContext, navigationPaths);
+    console.log("buildCodePrompt", prompt);
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -33852,9 +33853,6 @@ class TestExecutor {
   }
 
   async executeTestsAndGenerateReport(testCode) {
-    core.info("Inside executeTestsAndGenerateReport");
-    core.info(testCode);
-
     const hasMagnitudeCore = await this.checkDependency("magnitude-core");
 
     if (!hasMagnitudeCore) {

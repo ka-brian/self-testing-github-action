@@ -13,9 +13,6 @@ class TestExecutor {
   }
 
   async executeTestsAndGenerateReport(testCode) {
-    core.info("Inside executeTestsAndGenerateReport");
-    core.info(testCode);
-
     const hasMagnitudeCore = await this.checkDependency("magnitude-core");
 
     if (!hasMagnitudeCore) {
