@@ -33054,6 +33054,7 @@ Analyze the PR changes and create a SIMPLE, focused list of UI tests.
 - Only test what actually changed
 - Avoid comprehensive testing of existing features
 - Focus on the specific modification, not the entire feature
+- Do not include tests around changing viewport size
 
 ## Test Planning Guidelines:
 - **Simple copy/text changes**: 1-2 tests max (verify text appears correctly)
@@ -33080,10 +33081,9 @@ Provide 1-5 specific test scenarios based on the changes. Keep it simple and foc
   buildNavigationPrompt(testPlan, prContext) {
     const previewUrlsSection =
       prContext.previewUrls.length > 0
-        ? `## Available Preview URLs:
+        ? `## Base URL:
 ${prContext.previewUrls.map((url) => `- ${url}`).join("\n")}`
-        : `## Base URL:
-The tests will run against the main application (use process.env.PREVIEW_URL or fallback URL).`;
+        : `## Base URL: ${process.env.LOCAL_DEV_TARGET_URL}.`;
 
     return `You are analyzing a test plan to determine the specific URL paths and navigation instructions needed for each test.
 ${previewUrlsSection}
@@ -33157,6 +33157,7 @@ if (!isLoggedIn) {
 Tests will run without authentication.
 `;
 
+    // note LOCAL_DEV_TARGET_URL should just be used for local dev
     const baseUrlSection =
       prContext.previewUrls.length > 0
         ? `
@@ -33165,9 +33166,7 @@ Use: \`${prContext.previewUrls[0]}\`
 `
         : `
 ## Base URL:
-Use: \`http://localhost:3000\`
-`;
-
+Use: \`${process.env.LOCAL_DEV_TARGET_URL}`;
     const navigationSection = navigationPaths
       ? `
 ## Navigation Paths and Instructions:
@@ -33526,7 +33525,7 @@ async function run() {
     const githubToken = core.getInput("github-token", { required: true });
     const testExamples = core.getInput("test-examples");
     const outputDir = core.getInput("output-dir");
-    const timeout = parseInt(core.getInput("timeout")) * 1000;
+    const timeout = 600000;
     const commentOnPR = core.getInput("comment-on-pr") === "true";
 
     // Get GitHub context
@@ -33677,12 +33676,18 @@ class PRTestGenerator {
       core.info("🤖 Generating tests with Claude...");
       const testCode = await this.generateTests(prContext);
 
-      core.info("Generated test code: ", testCode);
+      core.info("Generated test code: ");
+      core.info(testCode);
 
       core.info("🧪 Generating test report...");
-      const testReport = await this.testExecutor.executeTestsAndGenerateReport(
-        testCode
-      );
+      let testReport;
+      try {
+        testReport = await this.testExecutor.executeTestsAndGenerateReport(
+          testCode
+        );
+      } catch (e) {
+        throw new Error(`Error generating test report ${e}`);
+      }
       this.testReporter.printTestReport(testReport);
 
       if (testReport.executionSkipped) {
@@ -33726,7 +33731,9 @@ class PRTestGenerator {
 
   async generateTests(prContext) {
     // Step 1: Analyze PR and create test plan
-    core.info("🔍 Step 1: Analyzing PR changes and creating test plan...");
+    core.info(
+      "🔍 generateTests Step 1: Analyzing PR changes and creating test plan..."
+    );
     const testPlan = await this.claudeService.analyzeAndPlan(prContext);
 
     core.info("📋 Generated test plan:");
@@ -33734,7 +33741,7 @@ class PRTestGenerator {
 
     // Step 2: Analyze test plan and determine URL paths/navigation
     core.info(
-      "🧭 Step 2: Analyzing navigation paths and URL routes for tests..."
+      "🧭 generateTests Step 2: Analyzing navigation paths and URL routes for tests..."
     );
     const navigationPaths = await this.claudeService.analyzeNavigationPaths(
       testPlan,
@@ -33745,7 +33752,9 @@ class PRTestGenerator {
     core.info(navigationPaths);
 
     // Step 3: Convert test plan to code with navigation paths
-    core.info("💻 Step 3: Converting test plan to executable code...");
+    core.info(
+      "💻 generateTests Step 3: Converting test plan to executable code..."
+    );
     const testCode = await this.claudeService.generateTestCode(
       testPlan,
       prContext,
@@ -33799,10 +33808,15 @@ const TEST_EXAMPLE = `
         }
       }
 
-      runTests().catch(error => {
-        console.error('Test suite failed:', error);
-        process.exit(1);
-      });`;
+      runTests()
+        .then(() => {
+          console.log("Test suite succeeded:");
+          process.exit(0);
+        })
+        .catch((error) => {
+          console.error("Test suite failed:", error);
+          process.exit(1);
+        });`;
 
 module.exports = { testExample: TEST_EXAMPLE };
 
@@ -33812,7 +33826,7 @@ module.exports = { testExample: TEST_EXAMPLE };
 /***/ 7339:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-const { exec } = __nccwpck_require__(5317);
+const { exec, spawn } = __nccwpck_require__(5317);
 const fs = (__nccwpck_require__(9896).promises);
 const path = __nccwpck_require__(6928);
 const { promisify } = __nccwpck_require__(9023);
@@ -33822,12 +33836,13 @@ const execAsync = promisify(exec);
 
 class TestExecutor {
   constructor(config) {
-    this.timeout = config.timeout || 120000;
+    this.timeout = 120000;
     this.claudeApiKey = config.claudeApiKey;
   }
 
   async executeTestsAndGenerateReport(testCode) {
-    const testCases = this.parseTestCasesFromCode(testCode);
+    core.info("Inside executeTestsAndGenerateReport");
+    core.info(testCode);
 
     const hasMagnitudeCore = await this.checkDependency("magnitude-core");
 
@@ -33853,7 +33868,6 @@ class TestExecutor {
 
         return {
           success: true,
-          testCases,
           output:
             "Test code generated successfully but not executed (dependency installation failed)",
           errors: `Failed to install dependencies: ${error.message}`,
@@ -33863,26 +33877,8 @@ class TestExecutor {
     }
 
     try {
-      let cleanTestCode = testCode
-        .replace(/```(?:javascript|js)?\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-
-      // if (
-      //   !cleanTestCode.includes("import") &&
-      //   !cleanTestCode.includes("require")
-      // ) {
-      const imports =
-        "const { startBrowserAgent } = require('magnitude-core');\nconst { z } = require('zod');\nrequire('dotenv').config();\n\n" +
-        "// Ensure ANTHROPIC_API_KEY is available\n" +
-        "if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {\n" +
-        "  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;\n" +
-        "}\n\n";
-      cleanTestCode = imports + cleanTestCode;
-      // }
-
-      const testFilePath = __nccwpck_require__.ab + "temp-test.js";
-      await fs.writeFile(__nccwpck_require__.ab + "temp-test.js", cleanTestCode);
+      const testFilePath = path.join(process.cwd(), "temp-test.js");
+      await fs.writeFile(testFilePath, testCode);
 
       core.info("🚀 Running generated tests...");
       const env = {
@@ -33890,41 +33886,125 @@ class TestExecutor {
         ANTHROPIC_API_KEY: this.claudeApiKey,
       };
 
-      const { stdout, stderr } = await execAsync(`node ${testFilePath}`, {
-        timeout: this.timeout,
-        env: env,
-      });
+      let stdoutCopy;
+      let stderrCopy;
 
-      const updatedTestCases = this.parseTestResults(
-        cleanTestCode,
-        stdout,
-        stderr
-      );
+      try {
+        core.info(`📝 About to execute: node ${testFilePath}`);
+        core.info(`📝 Working directory: ${process.cwd()}`);
+        core.info(`📝 Timeout: ${this.timeout}ms`);
 
-      await fs.unlink(__nccwpck_require__.ab + "temp-test.js");
+        const { stdout, stderr } = await this.executeWithRealTimeLogging(
+          testFilePath,
+          env
+        );
+
+        core.info(`📝 Command completed successfully`);
+        if (stderr) {
+          core.info("⚠️ stderr output:");
+          core.info(stderr);
+        }
+
+        stdoutCopy = stdout;
+        stderrCopy = stderr;
+      } catch (e) {
+        core.error("❌ Command failed with error:");
+        core.error(`Error message: ${e.message}`);
+        core.error(`Error code: ${e.code}`);
+        core.error(`Error signal: ${e.signal}`);
+        if (e.stdout) {
+          core.error(`stdout: ${e.stdout}`);
+        }
+        if (e.stderr) {
+          core.error(`stderr: ${e.stderr}`);
+        }
+
+        // Re-throw to be caught by outer try-catch
+        throw e;
+      }
+
+      await fs.unlink(testFilePath);
 
       return {
         success: true,
-        testCases: updatedTestCases,
-        output: stdout,
-        errors: stderr,
+        output: stdoutCopy,
+        errors: stderrCopy,
         executionSkipped: false,
       };
     } catch (error) {
       core.warning(`Test execution failed: ${error.message}`);
 
-      testCases.forEach((testCase) => {
-        testCase.status = "READY_TO_RUN";
-      });
-
       return {
         success: true,
-        testCases,
         output: "",
         errors: `Execution failed (dependencies may be missing): ${error.message}`,
         executionSkipped: true,
       };
     }
+  }
+
+  async executeWithRealTimeLogging(testFilePath, env) {
+    return new Promise((resolve, reject) => {
+      const child = spawn("node", [testFilePath], {
+        env: env,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      let stdout = "";
+      let stderr = "";
+
+      child.stdout.on("data", (data) => {
+        const output = data.toString();
+        stdout += output;
+        // Log each line in real-time
+        output.split("\n").forEach((line) => {
+          if (line.trim()) {
+            core.info(`📤 ${line}`);
+          }
+        });
+      });
+
+      child.stderr.on("data", (data) => {
+        const output = data.toString();
+        stderr += output;
+        // Log stderr in real-time
+        output.split("\n").forEach((line) => {
+          if (line.trim()) {
+            core.error(`🚨 ${line}`);
+          }
+        });
+      });
+
+      const timeout = setTimeout(() => {
+        core.warning(
+          `⏰ TIMEOUT REACHED: Test execution timed out after ${
+            this.timeout
+          }ms (${this.timeout / 1000} seconds)`
+        );
+        core.warning(`🛑 Killing process and terminating test execution...`);
+        child.kill("SIGTERM");
+        reject(new Error(`Command timed out after ${this.timeout}ms`));
+      }, this.timeout);
+
+      child.on("close", (code, signal) => {
+        clearTimeout(timeout);
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          const error = new Error(`Command failed: node ${testFilePath}`);
+          error.code = code;
+          error.signal = signal;
+          error.stdout = stdout;
+          error.stderr = stderr;
+          reject(error);
+        }
+      });
+
+      child.on("error", (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+    });
   }
 
   async checkDependency(moduleName) {
@@ -33978,107 +34058,6 @@ class TestExecutor {
       core.error(`❌ Playwright browser installation failed: ${error.message}`);
       throw error;
     }
-  }
-
-  parseTestResults(testCode, stdout, stderr) {
-    const testCases = this.parseTestCasesFromCode(testCode);
-
-    if (stdout.length > 50 || stderr.length > 0) {
-      testCases.forEach((testCase) => {
-        const hasSuccess =
-          stdout.includes("✓") ||
-          stdout.includes("PASS") ||
-          stdout.includes("SUCCESS") ||
-          stdout.includes("completed");
-        const hasError =
-          stderr.length > 0 ||
-          stdout.includes("✗") ||
-          stdout.includes("FAIL") ||
-          stdout.includes("ERROR");
-
-        testCase.status = hasError
-          ? "FAILED"
-          : hasSuccess
-          ? "PASSED"
-          : "UNKNOWN";
-      });
-    } else {
-      testCases.forEach((testCase) => {
-        testCase.status = "READY_TO_RUN";
-      });
-    }
-
-    return testCases;
-  }
-
-  parseTestCasesFromCode(testCode) {
-    const testCases = [];
-
-    const lines = testCode.split("\n");
-
-    lines.forEach((line, index) => {
-      const testCommentMatch = line.match(
-        /\/\/\s*(Test\s*\d*:?\s*(.+)|(\d+)\.\s*(.+))/i
-      );
-      if (testCommentMatch) {
-        const description =
-          testCommentMatch[2] || testCommentMatch[4] || testCommentMatch[1];
-        if (description && description.trim().length > 5) {
-          testCases.push({
-            name: description.trim(),
-            status: "GENERATED",
-            lineNumber: index + 1,
-          });
-        }
-      }
-    });
-
-    if (testCases.length === 0) {
-      const blockComments = testCode.match(/\/\*[\s\S]*?\*\//g) || [];
-      blockComments.forEach((comment, index) => {
-        const cleanComment = comment.replace(/\/\*|\*\//g, "").trim();
-        if (cleanComment.length > 20 && !cleanComment.includes("TODO")) {
-          testCases.push({
-            name:
-              cleanComment.substring(0, 100) +
-              (cleanComment.length > 100 ? "..." : ""),
-            status: "GENERATED",
-            lineNumber: index + 1,
-          });
-        }
-      });
-    }
-
-    if (testCases.length === 0) {
-      let testCount = 1;
-      const patterns = [
-        /agent\.navigate\(/,
-        /await\s+agent\.act\(['"].*navigate/i,
-        /await\s+agent\.act\(['"].*click.*button/i,
-        /await\s+agent\.act\(['"].*verify/i,
-      ];
-
-      patterns.forEach((pattern) => {
-        const matches = testCode.match(new RegExp(pattern.source, "gi"));
-        if (matches && matches.length > 0) {
-          testCases.push({
-            name: `Test Scenario ${testCount++}`,
-            status: "GENERATED",
-            lineNumber: 1,
-          });
-        }
-      });
-    }
-
-    if (testCases.length === 0) {
-      testCases.push({
-        name: "Generated test execution",
-        status: "GENERATED",
-        lineNumber: 1,
-      });
-    }
-
-    return testCases;
   }
 }
 

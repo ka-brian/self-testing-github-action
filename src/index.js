@@ -9,7 +9,7 @@ async function run() {
     const githubToken = core.getInput("github-token", { required: true });
     const testExamples = core.getInput("test-examples");
     const outputDir = core.getInput("output-dir");
-    const timeout = parseInt(core.getInput("timeout")) * 1000;
+    const timeout = 600000;
     const commentOnPR = core.getInput("comment-on-pr") === "true";
 
     // Get GitHub context

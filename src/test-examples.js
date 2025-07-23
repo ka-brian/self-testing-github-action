@@ -33,9 +33,14 @@ const TEST_EXAMPLE = `
         }
       }
 
-      runTests().catch(error => {
-        console.error('Test suite failed:', error);
-        process.exit(1);
-      });`;
+      runTests()
+        .then(() => {
+          console.log("Test suite succeeded:");
+          process.exit(0);
+        })
+        .catch((error) => {
+          console.error("Test suite failed:", error);
+          process.exit(1);
+        });`;
 
 module.exports = { testExample: TEST_EXAMPLE };

@@ -83,12 +83,18 @@ class PRTestGenerator {
       core.info("🤖 Generating tests with Claude...");
       const testCode = await this.generateTests(prContext);
 
-      core.info("Generated test code: ", testCode);
+      core.info("Generated test code: ");
+      core.info(testCode);
 
       core.info("🧪 Generating test report...");
-      const testReport = await this.testExecutor.executeTestsAndGenerateReport(
-        testCode
-      );
+      let testReport;
+      try {
+        testReport = await this.testExecutor.executeTestsAndGenerateReport(
+          testCode
+        );
+      } catch (e) {
+        throw new Error(`Error generating test report ${e}`);
+      }
       this.testReporter.printTestReport(testReport);
 
       if (testReport.executionSkipped) {
@@ -132,7 +138,9 @@ class PRTestGenerator {
 
   async generateTests(prContext) {
     // Step 1: Analyze PR and create test plan
-    core.info("🔍 Step 1: Analyzing PR changes and creating test plan...");
+    core.info(
+      "🔍 generateTests Step 1: Analyzing PR changes and creating test plan..."
+    );
     const testPlan = await this.claudeService.analyzeAndPlan(prContext);
 
     core.info("📋 Generated test plan:");
@@ -140,7 +148,7 @@ class PRTestGenerator {
 
     // Step 2: Analyze test plan and determine URL paths/navigation
     core.info(
-      "🧭 Step 2: Analyzing navigation paths and URL routes for tests..."
+      "🧭 generateTests Step 2: Analyzing navigation paths and URL routes for tests..."
     );
     const navigationPaths = await this.claudeService.analyzeNavigationPaths(
       testPlan,
@@ -151,7 +159,9 @@ class PRTestGenerator {
     core.info(navigationPaths);
 
     // Step 3: Convert test plan to code with navigation paths
-    core.info("💻 Step 3: Converting test plan to executable code...");
+    core.info(
+      "💻 generateTests Step 3: Converting test plan to executable code..."
+    );
     const testCode = await this.claudeService.generateTestCode(
       testPlan,
       prContext,

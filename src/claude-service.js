@@ -352,6 +352,7 @@ Analyze the PR changes and create a SIMPLE, focused list of UI tests.
 - Only test what actually changed
 - Avoid comprehensive testing of existing features
 - Focus on the specific modification, not the entire feature
+- Do not include tests around changing viewport size
 
 ## Test Planning Guidelines:
 - **Simple copy/text changes**: 1-2 tests max (verify text appears correctly)
@@ -378,10 +379,9 @@ Provide 1-5 specific test scenarios based on the changes. Keep it simple and foc
   buildNavigationPrompt(testPlan, prContext) {
     const previewUrlsSection =
       prContext.previewUrls.length > 0
-        ? `## Available Preview URLs:
+        ? `## Base URL:
 ${prContext.previewUrls.map((url) => `- ${url}`).join("\n")}`
-        : `## Base URL:
-The tests will run against the main application (use process.env.PREVIEW_URL or fallback URL).`;
+        : `## Base URL: ${process.env.LOCAL_DEV_TARGET_URL}.`;
 
     return `You are analyzing a test plan to determine the specific URL paths and navigation instructions needed for each test.
 ${previewUrlsSection}
@@ -455,6 +455,7 @@ if (!isLoggedIn) {
 Tests will run without authentication.
 `;
 
+    // note LOCAL_DEV_TARGET_URL should just be used for local dev
     const baseUrlSection =
       prContext.previewUrls.length > 0
         ? `
@@ -463,9 +464,7 @@ Use: \`${prContext.previewUrls[0]}\`
 `
         : `
 ## Base URL:
-Use: \`http://localhost:3000\`
-`;
-
+Use: \`${process.env.LOCAL_DEV_TARGET_URL}`;
     const navigationSection = navigationPaths
       ? `
 ## Navigation Paths and Instructions:
