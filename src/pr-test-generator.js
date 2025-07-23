@@ -83,6 +83,8 @@ class PRTestGenerator {
       core.info("🤖 Generating tests with Claude...");
       const testCode = await this.generateTests(prContext);
 
+      core.info("Generated test code: ", testCode);
+
       core.info("🧪 Generating test report...");
       const testReport = await this.testExecutor.executeTestsAndGenerateReport(
         testCode
