@@ -32703,6 +32703,17 @@ function wrappy (fn, cb) {
 const core = __nccwpck_require__(7484);
 const { testExample: TEST_EXAMPLE } = __nccwpck_require__(6865);
 
+const IMPORTS = `
+const { startBrowserAgent } = require("magnitude-core");
+const { z } = require("zod");
+require("dotenv").config();
+
+// Ensure ANTHROPIC_API_KEY is available
+if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {
+  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;
+}
+`;
+
 class ClaudeService {
   constructor(apiKey) {
     this.claudeApiKey = apiKey;
@@ -32948,7 +32959,7 @@ class ClaudeService {
     }
 
     const data = await response.json();
-    return data.content[0].text;
+    return IMPORTS + data.content[0].text;
   }
 
   buildUIAnalysisPrompt(prContext) {
@@ -33719,7 +33730,7 @@ class PRTestGenerator {
         duration,
       };
     } catch (error) {
-      core.error(`❌ Error: ${error.message}`);
+      core.error(`❌ Error in pr-test-generator: ${error.message}`);
 
       if (this.commentOnPR) {
         await this.githubService.commentError(error);

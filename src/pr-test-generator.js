@@ -126,7 +126,7 @@ class PRTestGenerator {
         duration,
       };
     } catch (error) {
-      core.error(`❌ Error: ${error.message}`);
+      core.error(`❌ Error in pr-test-generator: ${error.message}`);
 
       if (this.commentOnPR) {
         await this.githubService.commentError(error);

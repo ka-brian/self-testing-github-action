@@ -161,7 +161,7 @@ class TestExecutorTest {
         }`
       );
 
-      return testPassed;
+      return result.success;
     } catch (error) {
       console.error("❌ Test failed:", error.message);
       return false;

@@ -1,6 +1,17 @@
 const core = require("@actions/core");
 const { testExample: TEST_EXAMPLE } = require("./test-examples.js");
 
+const IMPORTS = `
+const { startBrowserAgent } = require("magnitude-core");
+const { z } = require("zod");
+require("dotenv").config();
+
+// Ensure ANTHROPIC_API_KEY is available
+if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {
+  process.env.ANTHROPIC_API_KEY = process.env.CLAUDE_API_KEY;
+}
+`;
+
 class ClaudeService {
   constructor(apiKey) {
     this.claudeApiKey = apiKey;
@@ -246,7 +257,7 @@ class ClaudeService {
     }
 
     const data = await response.json();
-    return data.content[0].text;
+    return IMPORTS + data.content[0].text;
   }
 
   buildUIAnalysisPrompt(prContext) {
