@@ -5,7 +5,7 @@ const ClaudeService = require("./claude-service");
 const GitHubService = require("./github-service");
 const TestExecutor = require("./test-executor");
 const TestReporter = require("./test-reporter");
-const { discoverRoutes } = require("./route-discovery");
+const { discoverRoutes } = require("./discover-routes");
 
 class PRTestGenerator {
   constructor(config) {
@@ -60,6 +60,57 @@ class PRTestGenerator {
         };
       }
 
+      // Load sitemap first to check relevance
+      let sitemap;
+      const sitemapPath = path.join(process.cwd(), "sitemap.json");
+
+      // Check if user-provided sitemap.json exists
+      if (fs.existsSync(sitemapPath)) {
+        core.info("📋 Found sitemap.json, loading for relevance check...");
+        try {
+          const sitemapContent = fs.readFileSync(sitemapPath, "utf8");
+          sitemap = JSON.parse(sitemapContent);
+          core.info("✅ Successfully loaded user-provided sitemap");
+        } catch (error) {
+          core.warning(`⚠️  Error reading sitemap.json: ${error.message}`);
+          core.info("🔍 Will skip sitemap relevance check...");
+          sitemap = null;
+        }
+      } else {
+        core.info(
+          "🔍 No sitemap.json found, will skip relevance check and discover routes later..."
+        );
+        sitemap = null;
+      }
+
+      // Check if changes are relevant to sitemap (only if sitemap exists)
+      if (sitemap) {
+        const isRelevant = await this.claudeService.changesRelevantToSitemap(
+          prContext,
+          sitemap
+        );
+
+        if (!isRelevant) {
+          core.info("🗺️ Changes are outside sitemap scope - skipping UI tests");
+          const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+          if (this.commentOnPR) {
+            await this.githubService.commentSitemapIrrelevant();
+          }
+
+          return {
+            success: true,
+            testFilePath: null,
+            results: {
+              success: true,
+              skipped: true,
+              reason: "Changes are outside sitemap scope",
+            },
+            duration,
+          };
+        }
+      }
+
       // Wait for preview URLs if needed
       if (
         !this.baseUrl &&
@@ -84,7 +135,7 @@ class PRTestGenerator {
       }
 
       core.info("🤖 Generating tests with Claude...");
-      const testCode = await this.generateTests(prContext);
+      const testCode = await this.generateTests(prContext, sitemap);
 
       core.info("Generated test code: ");
       core.info(testCode);
@@ -139,7 +190,7 @@ class PRTestGenerator {
     }
   }
 
-  async generateTests(prContext) {
+  async generateTests(prContext, providedSitemap = null) {
     // Step 1: Analyze PR and create test plan
     core.info(
       "🔍 generateTests Step 1: Analyzing PR changes and creating test plan..."
@@ -155,23 +206,32 @@ class PRTestGenerator {
     );
 
     let sitemap;
-    const sitemapPath = path.join(process.cwd(), "sitemap.json");
-    
-    // Check if user-provided sitemap.json exists
-    if (fs.existsSync(sitemapPath)) {
-      core.info("📋 Found sitemap.json, using user-provided sitemap...");
-      try {
-        const sitemapContent = fs.readFileSync(sitemapPath, "utf8");
-        sitemap = JSON.parse(sitemapContent);
-        core.info("✅ Successfully loaded user-provided sitemap");
-      } catch (error) {
-        core.warning(`⚠️  Error reading sitemap.json: ${error.message}`);
-        core.info("🔍 Falling back to route discovery...");
+
+    // Use provided sitemap if available, otherwise load/discover
+    if (providedSitemap) {
+      core.info("🗺️ Using pre-loaded sitemap from relevance check...");
+      sitemap = providedSitemap;
+    } else {
+      const sitemapPath = path.join(process.cwd(), "sitemap.json");
+
+      // Check if user-provided sitemap.json exists
+      if (fs.existsSync(sitemapPath)) {
+        core.info("📋 Found sitemap.json, using user-provided sitemap...");
+        try {
+          const sitemapContent = fs.readFileSync(sitemapPath, "utf8");
+          sitemap = JSON.parse(sitemapContent);
+          core.info("✅ Successfully loaded user-provided sitemap");
+        } catch (error) {
+          core.warning(`⚠️  Error reading sitemap.json: ${error.message}`);
+          core.info("🔍 Falling back to route discovery...");
+          sitemap = await discoverRoutes(prContext.previewUrls[0]);
+        }
+      } else {
+        core.info(
+          "🔍 No sitemap.json found, discovering routes dynamically..."
+        );
         sitemap = await discoverRoutes(prContext.previewUrls[0]);
       }
-    } else {
-      core.info("🔍 No sitemap.json found, discovering routes dynamically...");
-      sitemap = await discoverRoutes(prContext.previewUrls[0]);
     }
 
     core.info("🗺️ Using sitemap:");
