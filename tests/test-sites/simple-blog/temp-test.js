@@ -38,15 +38,15 @@ async function runTests() {
       await agent.act("Click login button");
     }
 
-    // Test 1: Verify header title on homepage
-    await agent.act("Navigate to the homepage");
+    // Test 1: Verify header title on
+    await agent.act("Navigate to the incentive index page");
     const headerText = await agent.extract(
       "Get the main header title text",
       z.string()
     );
-    if (headerText !== "My Awesome Blog") {
+    if (headerText !== "Whatever You Want") {
       throw new Error(
-        `Header text "${headerText}" does not match expected "My Awesome Blog"`
+        `Header text "${headerText}" does not match expected "Whatever You Want"`
       );
     }
 

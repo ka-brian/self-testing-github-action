@@ -1,6 +1,8 @@
-# Magnitude Project
+# About this project
 
-## Overview
+This project is a Github Action that uses Magnitude, which enables developers to control browsers using AI, to perform E2E tests on the preview link of a pull request in order to test the changes within it.
+
+## About Magnitude
 
 This project uses Magnitude, which enables developers to control browsers using AI.
 

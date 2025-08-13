@@ -227,6 +227,39 @@ class ClaudeService {
     return data.content[0].text;
   }
 
+  async generateQAInstructions(testPlan, prContext, sitemap) {
+    const prompt = this.buildQAInstructionsPrompt(testPlan, prContext, sitemap);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": this.claudeApiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 2000,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Claude API error (QA instructions): ${response.status} ${response.statusText} - ${errorText}`
+      );
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  }
+
   async generateTestCode(testPlan, prContext, navigationPaths) {
     const prompt = this.buildCodePrompt(testPlan, prContext, navigationPaths);
     console.log("buildCodePrompt", prompt);
@@ -437,6 +470,52 @@ Example:
 - **URL Path**: /settings
 - **Navigation**: Direct navigation to URL (may require authentication)
 Provide navigation details for each test in the plan.`;
+  }
+
+  buildQAInstructionsPrompt(testPlan, prContext, sitemap) {
+    const baseUrl = prContext.previewUrls.length > 0 ? prContext.previewUrls[0] : process.env.LOCAL_DEV_TARGET_URL;
+    
+    return `You are creating QA testing instructions for manual testing based on a Pull Request and discovered site navigation.
+
+## Pull Request Context:
+- **Title**: ${prContext.pr.title}
+- **Description**: ${prContext.pr.body || "No description provided"}
+- **Base URL**: ${baseUrl}
+
+## Test Plan:
+${testPlan}
+
+## Site Navigation Map:
+${JSON.stringify(sitemap, null, 2)}
+
+## Your Task:
+Generate clear, step-by-step instructions for QA testers to manually test the changes in this PR. Use the sitemap to provide specific navigation paths to reach the areas that need testing.
+
+## Instructions Format:
+For each test scenario, provide:
+1. **Test Name**: Clear description of what's being tested
+2. **Navigation Steps**: Step-by-step instructions using the sitemap data
+3. **Test Steps**: What actions to perform
+4. **Expected Results**: What should happen
+
+## Example Format:
+### Test 1: Verify New Export Button
+**Navigation:**
+1. Go to ${baseUrl}
+2. Click on "Settings" (leads to /settings)
+3. Navigate to the "Data Export" section
+
+**Test Steps:**
+1. Look for the new "Export Data" button
+2. Click the button
+3. Verify download starts
+
+**Expected Results:**
+- Button should be visible and labeled "Export Data"
+- Clicking should trigger a file download
+- No errors should occur
+
+Provide comprehensive manual testing instructions based on the test plan and navigation map.`;
   }
 
   buildCodePrompt(testPlan, prContext, navigationPaths) {

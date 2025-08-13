@@ -1,8 +1,11 @@
 const core = require("@actions/core");
+const fs = require("fs");
+const path = require("path");
 const ClaudeService = require("./claude-service");
 const GitHubService = require("./github-service");
 const TestExecutor = require("./test-executor");
 const TestReporter = require("./test-reporter");
+const { discoverRoutes } = require("./route-discovery");
 
 class PRTestGenerator {
   constructor(config) {
@@ -150,22 +153,51 @@ class PRTestGenerator {
     core.info(
       "🧭 generateTests Step 2: Analyzing navigation paths and URL routes for tests..."
     );
-    const navigationPaths = await this.claudeService.analyzeNavigationPaths(
+
+    let sitemap;
+    const sitemapPath = path.join(process.cwd(), "sitemap.json");
+    
+    // Check if user-provided sitemap.json exists
+    if (fs.existsSync(sitemapPath)) {
+      core.info("📋 Found sitemap.json, using user-provided sitemap...");
+      try {
+        const sitemapContent = fs.readFileSync(sitemapPath, "utf8");
+        sitemap = JSON.parse(sitemapContent);
+        core.info("✅ Successfully loaded user-provided sitemap");
+      } catch (error) {
+        core.warning(`⚠️  Error reading sitemap.json: ${error.message}`);
+        core.info("🔍 Falling back to route discovery...");
+        sitemap = await discoverRoutes(prContext.previewUrls[0]);
+      }
+    } else {
+      core.info("🔍 No sitemap.json found, discovering routes dynamically...");
+      sitemap = await discoverRoutes(prContext.previewUrls[0]);
+    }
+
+    core.info("🗺️ Using sitemap:");
+    core.info(JSON.stringify(sitemap, null, 2));
+
+    // Step 3: Generate QA instructions using sitemap
+    core.info(
+      "📋 generateTests Step 3: Generating QA navigation instructions..."
+    );
+    const qaInstructions = await this.claudeService.generateQAInstructions(
       testPlan,
-      prContext
+      prContext,
+      sitemap
     );
 
-    core.info("🗺️ Generated navigation paths:");
-    core.info(navigationPaths);
+    core.info("📋 Generated QA instructions:");
+    core.info(qaInstructions);
 
-    // Step 3: Convert test plan to code with navigation paths
+    // Step 4: Convert test plan to code with navigation paths
     core.info(
-      "💻 generateTests Step 3: Converting test plan to executable code..."
+      "💻 generateTests Step 4: Converting test plan to executable code..."
     );
     const testCode = await this.claudeService.generateTestCode(
       testPlan,
       prContext,
-      navigationPaths
+      sitemap
     );
 
     return testCode;
