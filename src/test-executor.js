@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 
 class TestExecutor {
   constructor(config) {
-    this.timeout = 120000;
+    this.timeout = 240000;
     this.claudeApiKey = config.claudeApiKey;
     this.skipDependencyInstall =
       config.skipDependencyInstall ||
