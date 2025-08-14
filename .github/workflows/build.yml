@@ -29,7 +29,7 @@ jobs:
       run: npx playwright install --with-deps
     
     - name: Build distribution
-      run: npm run build
+      run: node scripts/build.js
     
     - name: Commit and push if changed
       run: |
