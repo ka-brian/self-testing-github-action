@@ -234,8 +234,7 @@ class PRTestGenerator {
       }
     }
 
-    core.info("🗺️ Using sitemap:");
-    core.info(JSON.stringify(sitemap, null, 2));
+    core.info("🗺️ Using found sitemap");
 
     // Step 3: Generate QA instructions using sitemap
     core.info(
