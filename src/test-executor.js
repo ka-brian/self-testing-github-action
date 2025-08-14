@@ -15,6 +15,8 @@ class TestExecutor {
   async executeTestsAndGenerateReport(testCode) {
     const hasMagnitudeCore = await this.checkDependency("magnitude-core");
 
+    console.log({ hasMagnitudeCore });
+
     if (!hasMagnitudeCore) {
       core.info("📦 Installing required test dependencies...");
       try {
@@ -31,9 +33,6 @@ class TestExecutor {
         core.info("✅ Dependencies installed successfully");
       } catch (error) {
         core.warning(`Failed to install dependencies: ${error.message}`);
-        testCases.forEach((testCase) => {
-          testCase.status = "READY_TO_RUN";
-        });
 
         return {
           success: true,
