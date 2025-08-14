@@ -111,14 +111,7 @@ class EvalSuite {
       // Print results
       console.log("\n📊 Test Results:");
       console.log(`✅ Success: ${testReport.success}`);
-      console.log(`🧪 Test Cases: ${testReport.testCases.length}`);
       console.log(`⏭️  Execution Skipped: ${testReport.executionSkipped}`);
-
-      if (testReport.testCases.length > 0) {
-        testReport.testCases.forEach((testCase, i) => {
-          console.log(`  ${i + 1}. ${testCase.name} - ${testCase.status}`);
-        });
-      }
 
       if (testReport.output) {
         console.log("\n📝 Test Output:");

@@ -162,19 +162,6 @@ class GitHubService {
   async commentGenerated(testReport) {
     const timestamp = new Date().toISOString();
 
-    const passedCount = testReport.testCases.filter(
-      (t) => t.status === "PASSED"
-    ).length;
-    const failedCount = testReport.testCases.filter(
-      (t) => t.status === "FAILED"
-    ).length;
-    const readyToRunCount = testReport.testCases.filter(
-      (t) => t.status === "READY_TO_RUN"
-    ).length;
-    const generatedCount = testReport.testCases.filter(
-      (t) => t.status === "GENERATED"
-    ).length;
-
     const statusIcon = testReport.success ? "✅" : "❌";
     const overallStatus = testReport.success
       ? testReport.executionSkipped
@@ -182,35 +169,11 @@ class GitHubService {
         : "TESTS EXECUTED"
       : "EXECUTION FAILED";
 
-    const testCasesList = testReport.testCases
-      .map((testCase, index) => {
-        const statusIcon =
-          testCase.status === "PASSED"
-            ? "✅"
-            : testCase.status === "FAILED"
-            ? "❌"
-            : testCase.status === "READY_TO_RUN"
-            ? "🚀"
-            : "📝";
-        return `${statusIcon} **${index + 1}.** ${testCase.name}`;
-      })
-      .join("\n");
-
     const comment = `## 🧪 Test Execution Report
 
 *Auto-generated tests for PR #${this.prNumber} • ${timestamp}*
 
 ### Overall Status: ${statusIcon} ${overallStatus}
-
-### Test Summary:
-- **Total Test Cases**: ${testReport.testCases.length}
-- **Passed**: ✅ ${passedCount}
-- **Failed**: ❌ ${failedCount}
-- **Ready to Run**: 🚀 ${readyToRunCount}
-- **Generated**: 📝 ${generatedCount}
-
-### Test Cases:
-${testCasesList}
 
 ${
   testReport.executionSkipped
