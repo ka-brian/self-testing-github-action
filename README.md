@@ -12,8 +12,6 @@
 
 ## Quick Start
 
-TEST
-
 ### 1. Add the workflow to your repository
 
 Create `.github/workflows/pr-tests.yml`:
