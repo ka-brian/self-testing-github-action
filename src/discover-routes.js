@@ -19,7 +19,7 @@ async function discoverRoutes(url) {
       },
     },
     browser: {
-      launchOptions: { headless: false },
+      launchOptions: { headless: true },
       contextOptions: { viewport: { width: 1280, height: 720 } },
     },
   });
@@ -70,7 +70,7 @@ async function discoverRoutes(url) {
     for (const item of navItems) {
       try {
         console.log(`\n→ Exploring: ${item}`);
-        
+
         // First, check if this item has expandable content (dropdown/accordion)
         const hasExpandableContent = await agent.extract(
           `Does the navigation item "${item}" have expandable content like a dropdown menu, accordion, or submenu? Look for arrows, chevrons, or other indicators that suggest it can be expanded to show more options.`,
@@ -78,11 +78,15 @@ async function discoverRoutes(url) {
         );
 
         if (hasExpandableContent) {
-          console.log(`  ↳ ${item} has expandable content, exploring submenu...`);
-          
+          console.log(
+            `  ↳ ${item} has expandable content, exploring submenu...`
+          );
+
           // Expand the navigation item to reveal submenu
-          await agent.act(`Hover over or click to expand the "${item}" navigation item to show its submenu or dropdown`);
-          
+          await agent.act(
+            `Hover over or click to expand the "${item}" navigation item to show its submenu or dropdown`
+          );
+
           // Extract submenu items
           const submenuItems = await agent.extract(
             `List all submenu items that appeared when expanding "${item}". Include only the actual navigation links/options in the expanded menu.`,
@@ -95,9 +99,14 @@ async function discoverRoutes(url) {
           for (const submenuItem of submenuItems) {
             try {
               console.log(`    → Exploring submenu: ${submenuItem}`);
-              await agent.act(`Click on "${submenuItem}" from the ${item} submenu`);
+              await agent.act(
+                `Click on "${submenuItem}" from the ${item} submenu`
+              );
 
-              const pageUrl = await agent.extract("Get current URL", z.string());
+              const pageUrl = await agent.extract(
+                "Get current URL",
+                z.string()
+              );
               const pageDescription = await agent.extract(
                 "Describe what this page contains, its main functionality, and what actions or information are available here",
                 z.string()
@@ -116,21 +125,27 @@ async function discoverRoutes(url) {
                 description: pageDescription,
                 availableActions: availableActions,
                 discoveredAt: new Date().toISOString(),
-                level: "submenu"
+                level: "submenu",
               };
 
               console.log(`    URL: ${pageUrl}`);
               console.log(`    Description: ${pageDescription}`);
-              console.log(`    Available actions: ${availableActions.join(", ")}`);
+              console.log(
+                `    Available actions: ${availableActions.join(", ")}`
+              );
 
               // Navigate back to main page
               await agent.act("Go back to the main page with navigation");
             } catch (submenuError) {
-              console.log(`    Error exploring submenu ${submenuItem}: ${submenuError.message}`);
+              console.log(
+                `    Error exploring submenu ${submenuItem}: ${submenuError.message}`
+              );
               try {
                 await agent.act("Go back to the main page with navigation");
               } catch (recoveryError) {
-                console.log(`    Submenu recovery failed: ${recoveryError.message}`);
+                console.log(
+                  `    Submenu recovery failed: ${recoveryError.message}`
+                );
               }
             }
           }
@@ -156,7 +171,7 @@ async function discoverRoutes(url) {
             description: pageDescription,
             availableActions: availableActions,
             discoveredAt: new Date().toISOString(),
-            level: "main"
+            level: "main",
           };
 
           console.log(`  URL: ${pageUrl}`);
