@@ -561,12 +561,16 @@ Analyze the PR changes and create a SIMPLE, focused list of UI tests.
 - Avoid comprehensive testing of existing features
 - Focus on the specific modification, not the entire feature
 - Do not include tests around changing viewport size
+- **NEVER test styling, CSS, colors, fonts, layout, or visual appearance**
+- Focus ONLY on functional behavior: does the page load, do buttons work, does content appear
 
 ## Test Planning Guidelines:
 - **Simple copy/text changes**: 1-2 tests max (verify text appears correctly)
-- **Minor styling changes**: 1-3 tests (verify visual change is applied)
+- **Minor styling changes**: Skip CSS/visual testing - only test if functionality changed
 - **Small feature additions**: 2-4 tests (test the new functionality only)
 - **Complex features**: Maximum 5 tests
+- **Focus on**: Page loading, basic interactions, content presence, form submissions
+- **Avoid**: Visual appearance, styling, layout, animations, colors, fonts
 
 ## Output Format:
 Provide a numbered list of specific test scenarios in plain English. Each test should:
@@ -752,6 +756,8 @@ ${TEST_EXAMPLE}
 6. **Use the navigation paths and instructions** provided above to navigate to the correct URLs for each test
 7. **Navigate to the base URL** and then to specific paths as needed for each test
 8. **DO NOT include any import statements** - startBrowserAgent, z (from zod), and dotenv are already available
+9. **NEVER test styling or CSS** - focus only on basic functionality like page loading and simple interactions
+10. **Keep tests simple and focused** - test only essential functionality, not complex edge cases
 
 ## Output:
 Return ONLY the complete, executable test code. No explanations or markdown formatting.`;

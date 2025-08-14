@@ -328,6 +328,37 @@ This runs a comprehensive test that:
 
 See [TESTING.md](TESTING.md) for detailed testing documentation.
 
+## Generating a Sitemap
+
+You can use the included route discovery tool to generate a comprehensive sitemap of your web application:
+
+```bash
+# Run the discover routes script with your website URL
+node src/discover-routes.js
+```
+
+The script will:
+1. Navigate through your website's main navigation
+2. Explore dropdown menus and submenus
+3. Extract information about each page including available actions
+4. Generate a detailed sitemap with page descriptions
+
+**Configuration:**
+- Set `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` environment variables if your site requires authentication
+- The script will automatically handle login and project/workspace selection
+- Modify the URL in `src/discover-routes.js` or pass it as an argument
+
+**Output:**
+The script saves the discovered routes to `discovered-routes.json` in your project root. Save this file as `sitemap.json` in the root of your project for use by the test generation system.
+
+The sitemap includes:
+- Page URLs and descriptions
+- Available actions and functionality
+- Navigation hierarchy (main vs submenu items)
+- Discovery timestamps
+
+This sitemap helps the AI generate more targeted and comprehensive tests by understanding your application's structure.
+
 ## Contributing
 
 1. Fork the repository
