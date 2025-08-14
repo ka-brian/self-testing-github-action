@@ -10,15 +10,11 @@ class TestExecutor {
   constructor(config) {
     this.timeout = 120000;
     this.claudeApiKey = config.claudeApiKey;
+    this.skipDependencyInstall = config.skipDependencyInstall || process.env.SKIP_DEPENDENCY_INSTALL === 'true';
   }
 
   async executeTestsAndGenerateReport(testCode) {
-    const hasMagnitudeCore = await this.checkDependency("magnitude-core");
-
-    core.info("Has magnitude core:");
-    core.info(hasMagnitudeCore);
-
-    if (!hasMagnitudeCore) {
+    if (!this.skipDependencyInstall) {
       core.info("📦 Installing required test dependencies...");
       try {
         await this.installDependencies([
@@ -43,6 +39,8 @@ class TestExecutor {
           executionSkipped: true,
         };
       }
+    } else {
+      core.info("⏭️ Skipping dependency installation (test mode)");
     }
 
     try {
