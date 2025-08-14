@@ -1,0 +1,40 @@
+name: Build dist
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package*.json'
+      - '.github/workflows/build-dist.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build dist/index.js
+        run: npm run build
+      
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add dist/index.js
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Build dist [skip ci]"
+            git push
+          fi
