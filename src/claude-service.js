@@ -454,7 +454,7 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
   buildSitemapRelevancePrompt(prContext, sitemap) {
     const sitemapPaths = this.extractPathsFromSitemap(sitemap);
     
-    return `Analyze the following Pull Request changes and determine if they are relevant to the areas covered by the provided sitemap.
+    return `Analyze the following Pull Request changes and determine if they affect areas that are ACCESSIBLE through the provided sitemap.
 
 ## PR Details:
 - **Title**: ${prContext.pr.title}
@@ -476,7 +476,7 @@ ${file.patch ? file.patch.slice(0, 800) : "No patch available"}${
   .join("\n")}
 
 ## Sitemap Coverage:
-The sitemap covers these areas and paths:
+The sitemap provides navigation paths to these accessible areas:
 ${sitemapPaths.length > 0 ? sitemapPaths.map(path => `- ${path}`).join('\n') : "No specific paths found in sitemap"}
 
 Full sitemap structure:
@@ -485,25 +485,30 @@ ${JSON.stringify(sitemap, null, 2).slice(0, 1000)}${JSON.stringify(sitemap, null
 \`\`\`
 
 ## Analysis Instructions:
-Determine if the PR changes are likely to affect areas that are covered by the sitemap. Consider:
+Determine if the PR changes affect UI/functionality that can be ACCESSED and TESTED through the sitemap paths.
 
-**Changes ARE RELEVANT if they affect:**
-- Frontend pages, components, or routes that correspond to sitemap paths
-- UI elements that users would interact with on the mapped pages
-- Navigation, routing, or URL structure changes
-- Content or functionality that would be visible/testable on sitemap pages
-- Styling or layout changes that would affect the mapped areas
+**Changes ARE ACCESSIBLE AND TESTABLE if they affect:**
+- Pages or components that are directly accessible via sitemap paths
+- UI elements that would be visible when navigating to sitemap URLs
+- Functionality that can be reached and tested through the mapped navigation paths
+- Content or features that users can interact with on the accessible pages
+- Any changes to pages/routes that the sitemap provides access to
 
-**Changes ARE NOT RELEVANT if they affect:**
-- Backend-only code that doesn't impact frontend behavior
-- Database migrations or schema changes
-- CI/CD configuration
-- Documentation only
-- Dependencies that don't affect user-facing functionality
-- Areas of the application that are clearly outside the sitemap scope
+**Changes ARE NOT ACCESSIBLE if they affect:**
+- Pages or features that are NOT reachable through the sitemap paths
+- Admin-only or authentication-gated areas not covered by the sitemap
+- Backend-only code with no frontend impact
+- Features that require special conditions not accessible via sitemap navigation
+- Error states or edge cases that cannot be triggered through normal navigation
+- Areas of the application that the sitemap doesn't provide access to
+
+## Important Considerations:
+- The sitemap defines what is ACCESSIBLE for testing
+- If changes affect areas not reachable via the sitemap, they cannot be tested
+- Focus on whether the changed functionality can be reached and tested using the sitemap paths
 
 ## Instructions:
-Respond with ONLY "YES" if the changes are relevant to the sitemap areas, or "NO" if the changes are outside the sitemap scope and testing would not be effective.`;
+Respond with ONLY "YES" if the changes affect areas ACCESSIBLE through the sitemap, or "NO" if the changes are in areas that cannot be reached via the sitemap paths.`;
   }
 
   buildAnalysisPrompt(prContext) {
