@@ -110,6 +110,59 @@ class ClaudeService {
     }
   }
 
+  async changesRelevantToSitemap(prContext, sitemap) {
+    core.info(
+      "🗺️ Analyzing PR changes against sitemap to determine relevance..."
+    );
+
+    const prompt = this.buildSitemapRelevancePrompt(prContext, sitemap);
+
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.claudeApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-3-haiku-20240307",
+          max_tokens: 10,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        core.warning(`Claude API request failed: ${response.status}`);
+        return this.fallbackSitemapRelevance(prContext, sitemap);
+      }
+
+      const data = await response.json();
+      const result = data.content[0].text.trim().toUpperCase();
+
+      core.info(`Sitemap relevance analysis result: ${result}`);
+
+      if (result === "YES") {
+        core.info("✅ Changes are relevant to sitemap areas - will proceed with tests");
+        return true;
+      } else if (result === "NO") {
+        core.info("❌ Changes are outside sitemap scope - tests may not be effective");
+        return false;
+      } else {
+        core.warning(`Unexpected Claude response: ${result}`);
+        return this.fallbackSitemapRelevance(prContext, sitemap);
+      }
+    } catch (error) {
+      core.warning(`Error analyzing sitemap relevance: ${error.message}`);
+      return this.fallbackSitemapRelevance(prContext, sitemap);
+    }
+  }
+
   fallbackUIDetection(prContext) {
     core.info("🔍 Using fallback UI detection...");
 
@@ -160,6 +213,61 @@ class ClaudeService {
       core.info("🔧 No UI files detected - will skip UI tests");
       return false;
     }
+  }
+
+  fallbackSitemapRelevance(prContext, sitemap) {
+    core.info("🔍 Using fallback sitemap relevance analysis...");
+    
+    // If there's no sitemap or it's empty, assume changes are relevant
+    if (!sitemap || (Array.isArray(sitemap) && sitemap.length === 0) || 
+        (typeof sitemap === 'object' && Object.keys(sitemap).length === 0)) {
+      core.info("📋 No sitemap available - assuming changes are relevant");
+      return true;
+    }
+
+    // Extract all URLs/paths from sitemap structure
+    const sitemapPaths = this.extractPathsFromSitemap(sitemap);
+    
+    // Check if any changed files seem to correspond to sitemap areas
+    const changedFiles = prContext.files.map(f => f.filename);
+    
+    // Simple heuristic: if files seem to be in areas that could affect the sitemap
+    const couldAffectSitemap = changedFiles.some(filename => {
+      // Check if it's a page/route file that might correspond to sitemap paths
+      return filename.includes('/pages/') || 
+             filename.includes('/app/') || 
+             filename.includes('/routes/') ||
+             filename.includes('router') ||
+             filename.includes('navigation') ||
+             filename.endsWith('.tsx') ||
+             filename.endsWith('.jsx');
+    });
+
+    if (couldAffectSitemap) {
+      core.info("🎯 Changes appear to affect areas covered by sitemap");
+      return true;
+    } else {
+      core.info("⚠️ Changes may be outside sitemap scope");
+      return false;
+    }
+  }
+
+  extractPathsFromSitemap(sitemap) {
+    const paths = [];
+    
+    const extractFromObject = (obj) => {
+      if (Array.isArray(obj)) {
+        obj.forEach(item => extractFromObject(item));
+      } else if (typeof obj === 'object' && obj !== null) {
+        if (obj.url || obj.path || obj.route) {
+          paths.push(obj.url || obj.path || obj.route);
+        }
+        Object.values(obj).forEach(value => extractFromObject(value));
+      }
+    };
+    
+    extractFromObject(sitemap);
+    return paths;
   }
 
   async analyzeAndPlan(prContext) {
@@ -341,6 +449,61 @@ However, if there are UI changes that cannot be tested, for example error states
 You are inside of a sandboxed test environment, so you can perform CRUD operations for the sake of the test. Please make sure that you teardown anything that you create.
 
 Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not needed. Do not include any explanation.`;
+  }
+
+  buildSitemapRelevancePrompt(prContext, sitemap) {
+    const sitemapPaths = this.extractPathsFromSitemap(sitemap);
+    
+    return `Analyze the following Pull Request changes and determine if they are relevant to the areas covered by the provided sitemap.
+
+## PR Details:
+- **Title**: ${prContext.pr.title}
+- **Description**: ${prContext.pr.body || "No description provided"}
+
+## Changed Files:
+${prContext.files
+  .map(
+    (file) => `
+### ${file.filename} (${file.status})
+**Changes**: +${file.additions} -${file.deletions}
+\`\`\`diff
+${file.patch ? file.patch.slice(0, 800) : "No patch available"}${
+      file.patch && file.patch.length > 800 ? "\n...(truncated)" : ""
+    }
+\`\`\`
+`
+  )
+  .join("\n")}
+
+## Sitemap Coverage:
+The sitemap covers these areas and paths:
+${sitemapPaths.length > 0 ? sitemapPaths.map(path => `- ${path}`).join('\n') : "No specific paths found in sitemap"}
+
+Full sitemap structure:
+\`\`\`json
+${JSON.stringify(sitemap, null, 2).slice(0, 1000)}${JSON.stringify(sitemap, null, 2).length > 1000 ? "\n...(truncated)" : ""}
+\`\`\`
+
+## Analysis Instructions:
+Determine if the PR changes are likely to affect areas that are covered by the sitemap. Consider:
+
+**Changes ARE RELEVANT if they affect:**
+- Frontend pages, components, or routes that correspond to sitemap paths
+- UI elements that users would interact with on the mapped pages
+- Navigation, routing, or URL structure changes
+- Content or functionality that would be visible/testable on sitemap pages
+- Styling or layout changes that would affect the mapped areas
+
+**Changes ARE NOT RELEVANT if they affect:**
+- Backend-only code that doesn't impact frontend behavior
+- Database migrations or schema changes
+- CI/CD configuration
+- Documentation only
+- Dependencies that don't affect user-facing functionality
+- Areas of the application that are clearly outside the sitemap scope
+
+## Instructions:
+Respond with ONLY "YES" if the changes are relevant to the sitemap areas, or "NO" if the changes are outside the sitemap scope and testing would not be effective.`;
   }
 
   buildAnalysisPrompt(prContext) {
