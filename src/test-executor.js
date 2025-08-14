@@ -15,7 +15,8 @@ class TestExecutor {
   async executeTestsAndGenerateReport(testCode) {
     const hasMagnitudeCore = await this.checkDependency("magnitude-core");
 
-    console.log({ hasMagnitudeCore });
+    core.info("Has magnitude core:");
+    core.info(hasMagnitudeCore);
 
     if (!hasMagnitudeCore) {
       core.info("📦 Installing required test dependencies...");
