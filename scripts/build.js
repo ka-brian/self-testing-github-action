@@ -22,8 +22,20 @@ console.log("📦 Installing dependencies...");
 execSync("npm ci", { stdio: "inherit" });
 
 // Build using ncc (Node.js Compiler Collection)
-console.log("🔨 Compiling with ncc...");
-execSync("npx ncc build src/index.js -o dist --minify", { stdio: "inherit" });
+console.log("🔨 Compiling main entry point with ncc...");
+execSync("npx ncc build src/index.js -o dist --minify --external sharp --external playwright", { stdio: "inherit" });
+
+console.log("🔨 Compiling setup script with ncc...");
+execSync("npx ncc build src/setup.js -o dist-setup --minify", { stdio: "inherit" });
+
+// Move setup.js to the correct location
+const setupSource = path.join(__dirname, "..", "dist-setup", "index.js");
+const setupDest = path.join(distDir, "setup.js");
+if (fs.existsSync(setupSource)) {
+  fs.copyFileSync(setupSource, setupDest);
+  fs.rmSync(path.join(__dirname, "..", "dist-setup"), { recursive: true, force: true });
+  console.log("✅ Setup script built successfully!");
+}
 
 // Verify build
 const indexPath = path.join(distDir, "index.js");

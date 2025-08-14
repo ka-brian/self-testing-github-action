@@ -19,7 +19,7 @@ async function runTests() {
       },
     },
     browser: {
-      launchOptions: { headless: true },
+      launchOptions: { headless: false },
       contextOptions: { viewport: { width: 1280, height: 720 } },
     },
   });

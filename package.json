@@ -4,7 +4,7 @@
   "description": "GitHub Action to auto-generate and run tests for Pull Requests using Claude API and Magnitude",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build src/index.js -o dist",
+    "build": "ncc build src/index.js -o dist --external sharp --external playwright",
     "test": "node tests/local-test-runner.js",
     "test:all": "npx jest tests/analyze-and-plan.test.js && npx jest tests/claude-service.test.js && node tests/local-test-runner.js",
     "lint": "eslint src/",
