@@ -10,10 +10,13 @@ class TestExecutor {
   constructor(config) {
     this.timeout = 120000;
     this.claudeApiKey = config.claudeApiKey;
-    this.skipDependencyInstall = config.skipDependencyInstall || process.env.SKIP_DEPENDENCY_INSTALL === 'true';
+    this.skipDependencyInstall =
+      config.skipDependencyInstall ||
+      process.env.SKIP_DEPENDENCY_INSTALL === "true";
   }
 
   async executeTestsAndGenerateReport(testCode) {
+    console.log("test");
     if (!this.skipDependencyInstall) {
       core.info("📦 Installing required test dependencies...");
       try {
