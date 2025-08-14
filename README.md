@@ -10,7 +10,7 @@
 - 💬 **PR Integration**: Comments results directly on your Pull Request
 - 🎯 **Zero Configuration**: Works out of the box with sensible defaults
 
-## Quick Start!
+## Quick Start
 
 ### 1. Add the workflow to your repository
 
