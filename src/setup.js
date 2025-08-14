@@ -10,18 +10,21 @@ const path = require('path');
 console.log('🔧 Setting up PR Test Generator dependencies...');
 
 try {
+  // Get the action root directory (parent of dist)
+  const actionRoot = path.join(__dirname, '..');
+  
   // Install sharp for Linux
   console.log('📦 Installing sharp for Linux...');
   execSync('npm install --include=optional sharp', { 
     stdio: 'inherit',
-    cwd: __dirname 
+    cwd: actionRoot 
   });
 
   // Install Playwright browsers
   console.log('🎭 Installing Playwright browsers...');
   execSync('npx playwright install --with-deps', { 
     stdio: 'inherit',
-    cwd: __dirname 
+    cwd: actionRoot 
   });
 
   console.log('✅ Setup completed successfully!');
