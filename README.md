@@ -62,11 +62,6 @@ The action will add a comment to your PR like this:
 
 *Auto-generated tests for PR #123 • 2025-07-18T10:30:00.000Z*
 
-### Test Results:
-✅ should navigate to updated dashboard
-✅ should handle new form validation
-✅ should display error messages correctly
-
 ### Test File:
 - **Location**: `.github/generated-tests/pr-123-tests.js`
 - **Status**: ✅ Tests executed successfully
@@ -338,12 +333,14 @@ node src/discover-routes.js
 ```
 
 The script will:
+
 1. Navigate through your website's main navigation
 2. Explore dropdown menus and submenus
 3. Extract information about each page including available actions
 4. Generate a detailed sitemap with page descriptions
 
 **Configuration:**
+
 - Set `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` environment variables if your site requires authentication
 - The script will automatically handle login and project/workspace selection
 - Modify the URL in `src/discover-routes.js` or pass it as an argument
@@ -352,6 +349,7 @@ The script will:
 The script saves the discovered routes to `discovered-routes.json` in your project root. Save this file as `sitemap.json` in the root of your project for use by the test generation system.
 
 The sitemap includes:
+
 - Page URLs and descriptions
 - Available actions and functionality
 - Navigation hierarchy (main vs submenu items)
