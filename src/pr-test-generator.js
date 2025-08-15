@@ -144,7 +144,8 @@ class PRTestGenerator {
       let testReport;
       try {
         testReport = await this.testExecutor.executeTestsAndGenerateReport(
-          testCode
+          testCode,
+          this.testPlan
         );
       } catch (e) {
         throw new Error(`Error generating test report ${e}`);
@@ -195,10 +196,10 @@ class PRTestGenerator {
     core.info(
       "🔍 generateTests Step 1: Analyzing PR changes and creating test plan..."
     );
-    const testPlan = await this.claudeService.analyzeAndPlan(prContext);
+    this.testPlan = await this.claudeService.analyzeAndPlan(prContext);
 
     core.info("📋 Generated test plan:");
-    core.info(testPlan);
+    core.info(this.testPlan);
 
     // Step 2: Analyze test plan and determine URL paths/navigation
     core.info(
@@ -241,7 +242,7 @@ class PRTestGenerator {
       "📋 generateTests Step 3: Generating QA navigation instructions..."
     );
     const qaInstructions = await this.claudeService.generateQAInstructions(
-      testPlan,
+      this.testPlan,
       prContext,
       sitemap
     );
@@ -254,7 +255,7 @@ class PRTestGenerator {
       "💻 generateTests Step 4: Converting test plan to executable code..."
     );
     const testCode = await this.claudeService.generateTestCode(
-      testPlan,
+      this.testPlan,
       prContext,
       sitemap
     );

@@ -15,7 +15,7 @@ class TestExecutor {
       process.env.SKIP_DEPENDENCY_INSTALL === "true";
   }
 
-  async executeTestsAndGenerateReport(testCode) {
+  async executeTestsAndGenerateReport(testCode, testPlan = null) {
     if (!this.skipDependencyInstall) {
       core.info("📦 Installing required test dependencies...");
       try {
@@ -95,7 +95,7 @@ class TestExecutor {
 
       await fs.unlink(testFilePath);
 
-      const testResults = await this.parseTestResults(stdoutCopy);
+      const testResults = await this.parseTestResults(stdoutCopy, testPlan);
 
       return {
         success: true,
@@ -234,12 +234,19 @@ class TestExecutor {
     }
   }
 
-  async parseTestResults(stdout) {
+  async parseTestResults(stdout, testPlan = null) {
     if (!stdout || !this.claudeApiKey) {
       return [];
     }
 
     try {
+      const testPlanSection = testPlan ? `
+
+ORIGINAL TEST PLAN:
+${testPlan}
+
+Match the execution logs below against the numbered test cases in the test plan above.` : '';
+
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -253,11 +260,15 @@ class TestExecutor {
           messages: [
             {
               role: "user",
-              content: `Analyze this test execution output and extract individual test results. Return ONLY a JSON array with this exact format:
+              content: `Analyze the test execution output and determine which planned tests passed or failed. Return ONLY a JSON array with this exact format:
 [{"name": "test description", "status": "passed|failed|unknown", "error": "error message or null"}]
 
-Test output to analyze:
-${stdout}`
+${testPlanSection}
+
+TEST EXECUTION OUTPUT:
+${stdout}
+
+For each test case in the original plan, determine if it passed, failed, or couldn't be determined from the execution logs.`
             },
           ],
         }),
