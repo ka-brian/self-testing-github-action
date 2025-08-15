@@ -576,6 +576,7 @@ Analyze the PR changes and create a SIMPLE, focused list of UI tests.
 - **Complex features**: Maximum 5 tests
 - **Focus on**: Page loading, basic interactions, content presence, form submissions
 - **Avoid**: Visual appearance, styling, layout, animations, colors, fonts
+- **NEVER test edge cases or error states**: Do not test error conditions, invalid inputs, network failures, or other edge cases that require special setup or non-standard user flows
 
 ## Output Format:
 Provide a numbered list of specific test scenarios in plain English. Each test should:
