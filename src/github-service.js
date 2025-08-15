@@ -174,7 +174,12 @@ class GitHubService {
     if (testReport.testResults && testReport.testResults.length > 0) {
       testResultsSection = `\n### Test Results:\n`;
       testReport.testResults.forEach((test, index) => {
-        const icon = test.status === "passed" ? "✅" : test.status === "failed" ? "❌" : "⚠️";
+        const icon =
+          test.status === "passed"
+            ? "✅"
+            : test.status === "failed"
+            ? "❌"
+            : "⚠️";
         testResultsSection += `${index + 1}. ${icon} **${test.name}**`;
         if (test.status === "failed" && test.error) {
           testResultsSection += `\n   - Error: ${test.error}`;
@@ -187,12 +192,11 @@ class GitHubService {
 
 *Auto-generated tests for PR #${this.prNumber} • ${timestamp}*
 
-### Overall Status: ${statusIcon} ${overallStatus}
 ${testResultsSection}
 ${
   testReport.executionSkipped
     ? `### Status:
-🚀 **Tests Generated Successfully** - The test cases above are ready to run. Execution was skipped because test dependencies are not available in this environment.
+🚀 **Tests Executed Successfully**
 
 ${testReport.errors ? `**Details**: ${testReport.errors}` : ""}`
     : testReport.errors
