@@ -169,7 +169,7 @@ This is handled automatically by the default `GITHUB_TOKEN`.
 
 ### Preview URLs and Authentication
 
-The action can automatically detect preview URLs from PR comments (Vercel, Netlify, Railway, etc.) and use them for testing. If your preview environments require authentication, you can configure test credentials:
+The action can automatically detect preview URLs from PR comments (Vercel, Netlify, Railway, etc.) and use them for testing. If your preview environments require authentication, you can configure test credentials.
 
 1. **Automatic Detection**: The action scans PR comments for preview URLs
 2. **Manual Override**: Use `base-url` input to specify a custom URL
