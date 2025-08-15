@@ -169,12 +169,26 @@ class GitHubService {
         : "TESTS EXECUTED"
       : "EXECUTION FAILED";
 
+    // Build test results section
+    let testResultsSection = "";
+    if (testReport.testResults && testReport.testResults.length > 0) {
+      testResultsSection = `\n### Test Results:\n`;
+      testReport.testResults.forEach((test, index) => {
+        const icon = test.status === "passed" ? "✅" : test.status === "failed" ? "❌" : "⚠️";
+        testResultsSection += `${index + 1}. ${icon} **${test.name}**`;
+        if (test.status === "failed" && test.error) {
+          testResultsSection += `\n   - Error: ${test.error}`;
+        }
+        testResultsSection += "\n";
+      });
+    }
+
     const comment = `## 🧪 Test Execution Report
 
 *Auto-generated tests for PR #${this.prNumber} • ${timestamp}*
 
 ### Overall Status: ${statusIcon} ${overallStatus}
-
+${testResultsSection}
 ${
   testReport.executionSkipped
     ? `### Status:

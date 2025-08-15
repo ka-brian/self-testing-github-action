@@ -16,7 +16,6 @@ class TestExecutor {
   }
 
   async executeTestsAndGenerateReport(testCode) {
-    console.log("test");
     if (!this.skipDependencyInstall) {
       core.info("📦 Installing required test dependencies...");
       try {
@@ -40,6 +39,7 @@ class TestExecutor {
             "Test code generated successfully but not executed (dependency installation failed)",
           errors: `Failed to install dependencies: ${error.message}`,
           executionSkipped: true,
+          testResults: [],
         };
       }
     } else {
@@ -95,11 +95,14 @@ class TestExecutor {
 
       await fs.unlink(testFilePath);
 
+      const testResults = await this.parseTestResults(stdoutCopy);
+
       return {
         success: true,
         output: stdoutCopy,
         errors: stderrCopy,
         executionSkipped: false,
+        testResults,
       };
     } catch (error) {
       core.warning(`Test execution failed: ${error.message}`);
@@ -109,6 +112,7 @@ class TestExecutor {
         output: "",
         errors: `Execution failed (dependencies may be missing): ${error.message}`,
         executionSkipped: true,
+        testResults: [],
       };
     }
   }
@@ -227,6 +231,56 @@ class TestExecutor {
     } catch (error) {
       core.error(`❌ Playwright browser installation failed: ${error.message}`);
       throw error;
+    }
+  }
+
+  async parseTestResults(stdout) {
+    if (!stdout || !this.claudeApiKey) {
+      return [];
+    }
+
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.claudeApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-3-haiku-20240307",
+          max_tokens: 1000,
+          messages: [
+            {
+              role: "user",
+              content: `Analyze this test execution output and extract individual test results. Return ONLY a JSON array with this exact format:
+[{"name": "test description", "status": "passed|failed|unknown", "error": "error message or null"}]
+
+Test output to analyze:
+${stdout}`
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        core.warning(`Failed to parse test results: ${response.status}`);
+        return [];
+      }
+
+      const data = await response.json();
+      const resultText = data.content[0].text.trim();
+      
+      // Extract JSON from the response
+      const jsonMatch = resultText.match(/\[.*\]/s);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      
+      return [];
+    } catch (error) {
+      core.warning(`Error parsing test results: ${error.message}`);
+      return [];
     }
   }
 }
