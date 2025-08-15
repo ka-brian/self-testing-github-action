@@ -148,10 +148,14 @@ class ClaudeService {
       core.info(`Sitemap relevance analysis result: ${result}`);
 
       if (result === "YES") {
-        core.info("✅ Changes are relevant to sitemap areas - will proceed with tests");
+        core.info(
+          "✅ Changes are relevant to sitemap areas - will proceed with tests"
+        );
         return true;
       } else if (result === "NO") {
-        core.info("❌ Changes are outside sitemap scope - tests may not be effective");
+        core.info(
+          "❌ Changes are outside sitemap scope - tests may not be effective"
+        );
         return false;
       } else {
         core.warning(`Unexpected Claude response: ${result}`);
@@ -217,30 +221,35 @@ class ClaudeService {
 
   fallbackSitemapRelevance(prContext, sitemap) {
     core.info("🔍 Using fallback sitemap relevance analysis...");
-    
+
     // If there's no sitemap or it's empty, assume changes are relevant
-    if (!sitemap || (Array.isArray(sitemap) && sitemap.length === 0) || 
-        (typeof sitemap === 'object' && Object.keys(sitemap).length === 0)) {
+    if (
+      !sitemap ||
+      (Array.isArray(sitemap) && sitemap.length === 0) ||
+      (typeof sitemap === "object" && Object.keys(sitemap).length === 0)
+    ) {
       core.info("📋 No sitemap available - assuming changes are relevant");
       return true;
     }
 
     // Extract all URLs/paths from sitemap structure
     const sitemapPaths = this.extractPathsFromSitemap(sitemap);
-    
+
     // Check if any changed files seem to correspond to sitemap areas
-    const changedFiles = prContext.files.map(f => f.filename);
-    
+    const changedFiles = prContext.files.map((f) => f.filename);
+
     // Simple heuristic: if files seem to be in areas that could affect the sitemap
-    const couldAffectSitemap = changedFiles.some(filename => {
+    const couldAffectSitemap = changedFiles.some((filename) => {
       // Check if it's a page/route file that might correspond to sitemap paths
-      return filename.includes('/pages/') || 
-             filename.includes('/app/') || 
-             filename.includes('/routes/') ||
-             filename.includes('router') ||
-             filename.includes('navigation') ||
-             filename.endsWith('.tsx') ||
-             filename.endsWith('.jsx');
+      return (
+        filename.includes("/pages/") ||
+        filename.includes("/app/") ||
+        filename.includes("/routes/") ||
+        filename.includes("router") ||
+        filename.includes("navigation") ||
+        filename.endsWith(".tsx") ||
+        filename.endsWith(".jsx")
+      );
     });
 
     if (couldAffectSitemap) {
@@ -254,18 +263,18 @@ class ClaudeService {
 
   extractPathsFromSitemap(sitemap) {
     const paths = [];
-    
+
     const extractFromObject = (obj) => {
       if (Array.isArray(obj)) {
-        obj.forEach(item => extractFromObject(item));
-      } else if (typeof obj === 'object' && obj !== null) {
+        obj.forEach((item) => extractFromObject(item));
+      } else if (typeof obj === "object" && obj !== null) {
         if (obj.url || obj.path || obj.route) {
           paths.push(obj.url || obj.path || obj.route);
         }
-        Object.values(obj).forEach(value => extractFromObject(value));
+        Object.values(obj).forEach((value) => extractFromObject(value));
       }
     };
-    
+
     extractFromObject(sitemap);
     return paths;
   }
@@ -453,7 +462,7 @@ Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not ne
 
   buildSitemapRelevancePrompt(prContext, sitemap) {
     const sitemapPaths = this.extractPathsFromSitemap(sitemap);
-    
+
     return `Analyze the following Pull Request changes and determine if they affect areas that are ACCESSIBLE through the provided sitemap.
 
 ## PR Details:
@@ -477,11 +486,17 @@ ${file.patch ? file.patch.slice(0, 800) : "No patch available"}${
 
 ## Sitemap Coverage:
 The sitemap provides navigation paths to these accessible areas:
-${sitemapPaths.length > 0 ? sitemapPaths.map(path => `- ${path}`).join('\n') : "No specific paths found in sitemap"}
+${
+  sitemapPaths.length > 0
+    ? sitemapPaths.map((path) => `- ${path}`).join("\n")
+    : "No specific paths found in sitemap"
+}
 
 Full sitemap structure:
 \`\`\`json
-${JSON.stringify(sitemap, null, 2).slice(0, 1000)}${JSON.stringify(sitemap, null, 2).length > 1000 ? "\n...(truncated)" : ""}
+${JSON.stringify(sitemap, null, 2).slice(0, 1000)}${
+      JSON.stringify(sitemap, null, 2).length > 1000 ? "\n...(truncated)" : ""
+    }
 \`\`\`
 
 ## Analysis Instructions:
@@ -568,30 +583,16 @@ Analyze the PR changes and create a SIMPLE, focused list of UI tests.
 - Do not include tests around changing viewport size
 - **NEVER test styling, CSS, colors, fonts, layout, or visual appearance**
 - Focus ONLY on functional behavior: does the page load, do buttons work, does content appear
+- **NEVER test edge cases or error states**: Do not test error conditions, invalid inputs, network failures, or other edge cases that require special setup or non-standard user flows
 
 ## Test Planning Guidelines:
-- **Simple copy/text changes**: 1-2 tests max (verify text appears correctly)
-- **Minor styling changes**: Skip CSS/visual testing - only test if functionality changed
-- **Small feature additions**: 2-4 tests (test the new functionality only)
-- **Complex features**: Maximum 5 tests
+- Make no more than 3 tests
 - **Focus on**: Page loading, basic interactions, content presence, form submissions
-- **Avoid**: Visual appearance, styling, layout, animations, colors, fonts
-- **NEVER test edge cases or error states**: Do not test error conditions, invalid inputs, network failures, or other edge cases that require special setup or non-standard user flows
 
 ## Output Format:
 Provide a numbered list of specific test scenarios in plain English. Each test should:
 - Be specific about what to test
-- Include expected outcomes
-- Focus ONLY on what changed in this PR
-
-Example for simple copy change:
-1. Navigate to the homepage and verify the title shows "New Title" instead of "Old Title"
-
-Example for minor feature:
-1. Navigate to the settings page and verify the new "Export Data" button is visible
-2. Click the "Export Data" button and verify a download starts
-
-Provide 1-5 specific test scenarios based on the changes. Keep it simple and focused.`;
+- Include expected outcomes`;
   }
 
   buildNavigationPrompt(testPlan, prContext) {
@@ -646,8 +647,11 @@ Provide navigation details for each test in the plan.`;
   }
 
   buildQAInstructionsPrompt(testPlan, prContext, sitemap) {
-    const baseUrl = prContext.previewUrls.length > 0 ? prContext.previewUrls[0] : process.env.LOCAL_DEV_TARGET_URL;
-    
+    const baseUrl =
+      prContext.previewUrls.length > 0
+        ? prContext.previewUrls[0]
+        : process.env.LOCAL_DEV_TARGET_URL;
+
     return `You are creating QA testing instructions for manual testing based on a Pull Request and discovered site navigation.
 
 ## Pull Request Context:
