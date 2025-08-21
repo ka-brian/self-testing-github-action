@@ -1,0 +1,17 @@
+node_modules/
+.git/
+.github/
+coverage/
+.env
+.env.local
+*.log
+tests/
+docs/
+README.md
+LICENSE
+.gitignore
+.eslintrc*
+jest.config.js
+*.test.js
+.DS_Store
+mcp-server/

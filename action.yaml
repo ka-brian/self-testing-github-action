@@ -83,6 +83,5 @@ outputs:
     description: "Boolean indicating if all tests passed"
 
 runs:
-  using: "node20"
-  main: "dist/index.js"
-  pre: "dist/setup.js"
+  using: "docker"
+  image: "Dockerfile"
