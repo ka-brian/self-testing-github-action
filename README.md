@@ -192,6 +192,35 @@ The action can automatically detect preview URLs from PR comments (Vercel, Netli
 3. **Test Execution**: Runs generated tests using Magnitude in a headless browser
 4. **Results Reporting**: Comments detailed results on the PR
 
+## Performance & Docker
+
+This GitHub Action runs in a **Docker container** for improved performance and reliability:
+
+### Benefits of Docker Implementation
+
+- **Faster execution**: Dependencies and Playwright browsers are pre-installed in the Docker image
+- **Consistent environment**: Same runtime environment across all executions
+- **Reduced failures**: No more npm install or browser download failures during action runs
+- **Better caching**: GitHub automatically caches the Docker image within workflow runs
+
+### Performance Characteristics
+
+- **First run**: ~2-3 minutes (Docker image build time)
+- **Subsequent runs**: ~10-20 seconds (cached image startup)
+- **Dependencies**: All pre-installed (Node.js, Playwright, system libraries)
+
+### Docker Architecture
+
+The action uses a multi-stage build process:
+
+1. Installs system dependencies for browser automation
+2. Installs npm dependencies (including devDependencies)
+3. Builds the action with `@vercel/ncc`
+4. Installs Playwright browsers (Chromium + dependencies)
+5. Removes devDependencies to optimize final image size
+
+This approach ensures fast startup times while maintaining a reasonable image size.
+
 ## Best Practices
 
 ### Security
