@@ -110,7 +110,7 @@ class TestExecutor {
       return {
         success: true,
         output: "",
-        errors: `Execution failed (dependencies may be missing): ${error.message}`,
+        errors: `Execution failed: ${error.message}`,
         executionSkipped: true,
         testResults: [],
       };
@@ -240,12 +240,14 @@ class TestExecutor {
     }
 
     try {
-      const testPlanSection = testPlan ? `
+      const testPlanSection = testPlan
+        ? `
 
 ORIGINAL TEST PLAN:
 ${testPlan}
 
-Match the execution logs below against the numbered test cases in the test plan above.` : '';
+Match the execution logs below against the numbered test cases in the test plan above.`
+        : "";
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -268,7 +270,7 @@ ${testPlanSection}
 TEST EXECUTION OUTPUT:
 ${stdout}
 
-For each test case in the original plan, determine if it passed, failed, or couldn't be determined from the execution logs.`
+For each test case in the original plan, determine if it passed, failed, or couldn't be determined from the execution logs.`,
             },
           ],
         }),
@@ -281,13 +283,13 @@ For each test case in the original plan, determine if it passed, failed, or coul
 
       const data = await response.json();
       const resultText = data.content[0].text.trim();
-      
+
       // Extract JSON from the response
       const jsonMatch = resultText.match(/\[.*\]/s);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       }
-      
+
       return [];
     } catch (error) {
       core.warning(`Error parsing test results: ${error.message}`);
