@@ -2,6 +2,10 @@
 
 This project is a Github Action that uses Magnitude, which enables developers to control browsers using AI, to perform E2E tests on the preview link of a pull request in order to test the changes within it.
 
+## Development Notes
+
+**IMPORTANT**: Do not run `npm build` on local desktop/development machines. This project is designed to run in GitHub Actions environment which has different dependencies and configurations. Building locally may produce artifacts that don't work correctly in the GitHub Actions environment.
+
 ## About Magnitude
 
 This project uses Magnitude, which enables developers to control browsers using AI.

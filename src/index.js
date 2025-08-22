@@ -13,6 +13,7 @@ async function run() {
     const commentOnPR = core.getInput("comment-on-pr") === "true";
     const baseUrl = core.getInput("base-url");
     const waitForPreview = parseInt(core.getInput("wait-for-preview")) || 60;
+    const enableCaching = core.getInput("enable-caching") === "true";
     
     // Get authentication inputs and set as environment variables
     const testUserEmail = core.getInput("test-user-email");
@@ -46,6 +47,7 @@ async function run() {
       commentOnPR,
       baseUrl,
       waitForPreview,
+      enableCaching,
     };
 
     core.info(`🚀 Starting test generation for PR #${config.prNumber}`);

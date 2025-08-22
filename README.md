@@ -83,6 +83,7 @@ The action will add a comment to your PR like this:
 | `base-url`           | Base URL to use for tests (overrides preview URL detection)       | ❌       | -                         |
 | `test-user-email`    | Email for test user authentication (if preview requires login)    | ❌       | -                         |
 | `test-user-password` | Password for test user authentication (if preview requires login) | ❌       | -                         |
+| `enable-caching`     | Enable caching of generated test code in PR comments              | ❌       | `true`                    |
 
 ### Outputs
 
@@ -191,6 +192,44 @@ The action can automatically detect preview URLs from PR comments (Vercel, Netli
 2. **Test Generation**: Sends context to Claude API with your test examples
 3. **Test Execution**: Runs generated tests using Magnitude in a headless browser
 4. **Results Reporting**: Comments detailed results on the PR
+
+## Test Code Caching
+
+The action supports caching of generated test code to speed up subsequent runs and reduce API calls to Claude.
+
+### How Caching Works
+
+1. **Initial Generation**: When tests are first generated, they are cached in a special PR comment
+2. **Cache Key**: A hash is calculated from:
+   - Changed files and their patches
+   - PR title and description
+   - File additions/deletions counts
+3. **Cache Reuse**: On subsequent runs, if the PR changes haven't been modified, the cached test code is reused
+4. **Automatic Invalidation**: When PR changes are detected (new commits, file modifications), the cache is automatically invalidated and new tests are generated
+
+### Benefits
+
+- **Faster Execution**: Skip Claude API calls when PR changes haven't been modified
+- **Cost Savings**: Reduce API usage for unchanged PRs
+- **Consistency**: Same tests run for the same changes
+- **Transparency**: Cached test code is stored as a comment in the PR for visibility
+
+### Configuration
+
+```yaml
+- uses: ka-brian/pr-test-generator@v1
+  with:
+    claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+    # Disable caching if needed
+    enable-caching: "false"
+```
+
+### Cache Management
+
+- **Automatic**: Cache is managed automatically - no manual intervention needed
+- **PR Scoped**: Each PR has its own cache, isolated from other PRs
+- **Version Safe**: Cache includes version information for future compatibility
+- **Secure**: Cache is stored as base64-encoded data in PR comments
 
 ## Performance & Docker
 

@@ -26,6 +26,7 @@ class PRTestGenerator {
     this.commentOnPR = config.commentOnPR !== false;
     this.waitForPreview = config.waitForPreview || 60;
     this.baseUrl = config.baseUrl;
+    this.enableCaching = config.enableCaching !== false;
   }
 
   async run() {
@@ -162,7 +163,7 @@ class PRTestGenerator {
 
       if (this.commentOnPR) {
         core.info("💬 Commenting on PR...");
-        await this.githubService.commentGenerated(testReport);
+        await this.githubService.commentGenerated(testReport, this.usedCache || false);
       }
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -192,6 +193,35 @@ class PRTestGenerator {
   }
 
   async generateTests(prContext, providedSitemap = null) {
+    let currentChangesHash = null;
+    
+    // Only use caching if enabled
+    if (this.enableCaching) {
+      // Calculate hash of current PR changes
+      currentChangesHash = this.githubService.calculateChangesHash(prContext);
+      core.info(`🔐 Current PR changes hash: ${currentChangesHash}`);
+
+      // Check for cached test code
+      const cachedData = await this.githubService.getCachedTestCode();
+      if (cachedData && cachedData.changesHash === currentChangesHash) {
+        core.info("🎯 Found valid cached test code, using cached version");
+        core.info(`📅 Cache timestamp: ${cachedData.timestamp}`);
+        this.testPlan = cachedData.testPlan;
+        this.usedCache = true; // Track that we used cached test code
+        // Restore sensitive credentials that were replaced with placeholders
+        const restoredTestCode = this.githubService.restoreSensitiveCredentials(cachedData.testCode);
+        return restoredTestCode;
+      } else if (cachedData) {
+        core.info("🔄 Cached test code found but PR changes have been modified");
+        core.info(`   Old hash: ${cachedData.changesHash}`);
+        core.info(`   New hash: ${currentChangesHash}`);
+      } else {
+        core.info("📭 No cached test code found");
+      }
+    } else {
+      core.info("🚫 Test code caching is disabled");
+    }
+
     // Step 1: Analyze PR and create test plan
     core.info(
       "🔍 generateTests Step 1: Analyzing PR changes and creating test plan..."
@@ -259,6 +289,19 @@ class PRTestGenerator {
       prContext,
       sitemap
     );
+
+    // Cache the generated test code if caching is enabled
+    if (this.enableCaching) {
+      if (!currentChangesHash) {
+        currentChangesHash = this.githubService.calculateChangesHash(prContext);
+      }
+      core.info("💾 Caching generated test code for future runs...");
+      await this.githubService.cacheTestCode(
+        testCode,
+        currentChangesHash,
+        this.testPlan
+      );
+    }
 
     return testCode;
   }

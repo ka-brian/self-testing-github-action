@@ -73,6 +73,10 @@ inputs:
   test-user-password:
     description: "Password for test user authentication (if preview requires login)"
     required: false
+  enable-caching:
+    description: "Enable caching of generated test code in PR comments to speed up subsequent runs"
+    required: false
+    default: "true"
 
 outputs:
   test-results:
