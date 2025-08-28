@@ -1,8 +1,37 @@
-const core = require("@actions/core");
-const github = require("@actions/github");
-const PRTestGenerator = require("./pr-test-generator");
+import * as core from "@actions/core";
+import * as github from "@actions/github";
+import PRTestGenerator from "./pr-test-generator";
 
-async function run() {
+interface Config {
+  claudeApiKey: string;
+  githubToken: string;
+  owner: string;
+  repo: string;
+  prNumber: number;
+  testExamples?: string;
+  outputDir?: string;
+  timeout: number;
+  commentOnPR: boolean;
+  baseUrl?: string;
+  waitForPreview: number;
+  enableCaching: boolean;
+}
+
+interface TestResults {
+  success: boolean;
+  testFilePath?: string | null;
+  testCode?: any;
+  testReport?: any;
+  results: {
+    success: boolean;
+    message?: string;
+    skipped?: boolean;
+    reason?: string;
+  };
+  duration: string;
+}
+
+async function run(): Promise<void> {
   try {
     // Get inputs
     const claudeApiKey = core.getInput("claude-api-key", { required: true });
@@ -35,7 +64,7 @@ async function run() {
       return;
     }
 
-    const config = {
+    const config: Config = {
       claudeApiKey,
       githubToken,
       owner: context.repo.owner,
@@ -55,11 +84,11 @@ async function run() {
 
     // Create and run test generator
     const generator = new PRTestGenerator(config);
-    const results = await generator.run();
+    const results: TestResults = await generator.run();
 
     // Set outputs
     core.setOutput("test-results", JSON.stringify(results));
-    core.setOutput("test-file-path", results.testFilePath);
+    core.setOutput("test-file-path", results.testFilePath || "");
     core.setOutput("tests-passed", results.success);
 
     if (results.success) {
@@ -74,8 +103,9 @@ async function run() {
     // Note: We don't fail the action if tests fail, as test failures are expected
     // The purpose is to generate and run tests, not to gate the PR
   } catch (error) {
-    core.error(`Action failed: ${error.message}`);
-    core.setFailed(error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    core.error(`Action failed: ${errorMessage}`);
+    core.setFailed(errorMessage);
   }
 }
 
@@ -84,4 +114,4 @@ if (require.main === module) {
   run();
 }
 
-module.exports = { run };
+export { run };

@@ -43,4 +43,4 @@ const TEST_EXAMPLE = `
           process.exit(1);
         });`;
 
-module.exports = { testExample: TEST_EXAMPLE };
+export { TEST_EXAMPLE as testExample };

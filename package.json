@@ -4,10 +4,11 @@
   "description": "GitHub Action to auto-generate and run tests for Pull Requests using Claude API and Magnitude",
   "main": "dist/index.js",
   "scripts": {
-    "build": "ncc build src/index.js -o dist --external sharp --external playwright",
-    "test": "node tests/local-test-runner.js",
-    "test:all": "npx jest tests/analyze-and-plan.test.js && npx jest tests/claude-service.test.js && node tests/local-test-runner.js",
-    "lint": "eslint src/",
+    "build": "tsc && ncc build dist/index.js -o dist --external sharp --external playwright",
+    "test": "jest",
+    "test:all": "jest",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
     "package": "npm run build"
   },
   "keywords": [
@@ -31,9 +32,15 @@
     "zod": "3.24"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
     "@vercel/ncc": "^0.38.1",
     "eslint": "^8.57.0",
-    "jest": "^30.0.5"
+    "jest": "^30.0.5",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=20"

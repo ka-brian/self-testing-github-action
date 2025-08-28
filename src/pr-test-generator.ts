@@ -1,14 +1,55 @@
-const core = require("@actions/core");
-const fs = require("fs");
-const path = require("path");
-const ClaudeService = require("./claude-service");
-const GitHubService = require("./github-service");
-const TestExecutor = require("./test-executor");
-const TestReporter = require("./test-reporter");
-const { discoverRoutes } = require("./discover-routes");
+import * as core from "@actions/core";
+import * as fs from "fs";
+import * as path from "path";
+import ClaudeService from "./claude-service";
+import GitHubService from "./github-service";
+import TestExecutor from "./test-executor";
+import TestReporter from "./test-reporter";
+import { discoverRoutes } from "./discover-routes";
+
+interface Config {
+  claudeApiKey: string;
+  githubToken: string;
+  owner: string;
+  repo: string;
+  prNumber: number;
+  timeout?: number;
+  testExamples?: string;
+  commentOnPR?: boolean;
+  waitForPreview?: number;
+  baseUrl?: string;
+  enableCaching?: boolean;
+}
+
+interface TestResults {
+  success: boolean;
+  testFilePath?: string | null;
+  testCode?: string;
+  testReport?: any;
+  results: {
+    success: boolean;
+    message?: string;
+    skipped?: boolean;
+    reason?: string;
+  };
+  duration: string;
+}
 
 class PRTestGenerator {
-  constructor(config) {
+  private config: Config;
+  private claudeService: ClaudeService;
+  private githubService: GitHubService;
+  private testExecutor: TestExecutor;
+  private testReporter: TestReporter;
+  private testExamples?: string;
+  private commentOnPR: boolean;
+  private waitForPreview: number;
+  private baseUrl?: string;
+  private enableCaching: boolean;
+  private testPlan?: string;
+  private usedCache?: boolean;
+
+  constructor(config: Config) {
     this.config = config;
     this.claudeService = new ClaudeService(config.claudeApiKey);
     this.githubService = new GitHubService({
@@ -29,7 +70,7 @@ class PRTestGenerator {
     this.enableCaching = config.enableCaching !== false;
   }
 
-  async run() {
+  async run(): Promise<TestResults> {
     const startTime = Date.now();
 
     try {
@@ -62,7 +103,7 @@ class PRTestGenerator {
       }
 
       // Load sitemap first to check relevance
-      let sitemap;
+      let sitemap: any;
       const sitemapPath = path.join(process.cwd(), "sitemap.json");
 
       // Check if user-provided sitemap.json exists
@@ -73,7 +114,7 @@ class PRTestGenerator {
           sitemap = JSON.parse(sitemapContent);
           core.info("✅ Successfully loaded user-provided sitemap");
         } catch (error) {
-          core.warning(`⚠️  Error reading sitemap.json: ${error.message}`);
+          core.warning(`⚠️  Error reading sitemap.json: ${(error as Error).message}`);
           core.info("🔍 Will skip sitemap relevance check...");
           sitemap = null;
         }
@@ -142,7 +183,7 @@ class PRTestGenerator {
       core.info(testCode);
 
       core.info("🧪 Generating test report...");
-      let testReport;
+      let testReport: any;
       try {
         testReport = await this.testExecutor.executeTestsAndGenerateReport(
           testCode,
@@ -182,18 +223,18 @@ class PRTestGenerator {
         duration,
       };
     } catch (error) {
-      core.error(`❌ Error in pr-test-generator: ${error.message}`);
+      core.error(`❌ Error in pr-test-generator: ${(error as Error).message}`);
 
       if (this.commentOnPR) {
-        await this.githubService.commentError(error);
+        await this.githubService.commentError(error as Error);
       }
 
       throw error;
     }
   }
 
-  async generateTests(prContext, providedSitemap = null) {
-    let currentChangesHash = null;
+  async generateTests(prContext: any, providedSitemap: any = null): Promise<string> {
+    let currentChangesHash: string | null = null;
     
     // Only use caching if enabled
     if (this.enableCaching) {
@@ -236,7 +277,7 @@ class PRTestGenerator {
       "🧭 generateTests Step 2: Analyzing navigation paths and URL routes for tests..."
     );
 
-    let sitemap;
+    let sitemap: any;
 
     // Use provided sitemap if available, otherwise load/discover
     if (providedSitemap) {
@@ -253,7 +294,7 @@ class PRTestGenerator {
           sitemap = JSON.parse(sitemapContent);
           core.info("✅ Successfully loaded user-provided sitemap");
         } catch (error) {
-          core.warning(`⚠️  Error reading sitemap.json: ${error.message}`);
+          core.warning(`⚠️  Error reading sitemap.json: ${(error as Error).message}`);
           core.info("🔍 Falling back to route discovery...");
           sitemap = await discoverRoutes(prContext.previewUrls[0]);
         }
@@ -307,4 +348,4 @@ class PRTestGenerator {
   }
 }
 
-module.exports = PRTestGenerator;
+export default PRTestGenerator;

@@ -4,8 +4,8 @@
  * Setup script to install native dependencies required by the action
  */
 
-const { execSync } = require('child_process');
-const path = require('path');
+import { execSync } from 'child_process';
+import * as path from 'path';
 
 console.log('🔧 Setting up PR Test Generator dependencies...');
 
@@ -29,6 +29,6 @@ try {
 
   console.log('✅ Setup completed successfully!');
 } catch (error) {
-  console.error('❌ Setup failed:', error.message);
+  console.error('❌ Setup failed:', (error as Error).message);
   process.exit(1);
 }

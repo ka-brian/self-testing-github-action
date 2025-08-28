@@ -1,5 +1,5 @@
-const core = require("@actions/core");
-const { testExample: TEST_EXAMPLE } = require("./test-examples.js");
+import * as core from "@actions/core";
+import { testExample as TEST_EXAMPLE } from "./test-examples";
 
 const IMPORTS = `
 const { startBrowserAgent } = require("magnitude-core");
@@ -12,12 +12,41 @@ if (!process.env.ANTHROPIC_API_KEY && process.env.CLAUDE_API_KEY) {
 }
 `;
 
+interface PRFile {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  patch?: string;
+}
+
+interface PR {
+  title: string;
+  body: string | null;
+  author: string;
+}
+
+interface PRContext {
+  files: PRFile[];
+  pr: PR;
+  previewUrls: string[];
+  repoContext: Record<string, string>;
+}
+
+interface ClaudeResponse {
+  content: Array<{
+    text: string;
+  }>;
+}
+
 class ClaudeService {
-  constructor(apiKey) {
+  private claudeApiKey: string;
+
+  constructor(apiKey: string) {
     this.claudeApiKey = apiKey;
   }
 
-  async requiresUITesting(prContext) {
+  async requiresUITesting(prContext: PRContext): Promise<boolean> {
     core.info(
       "🤖 Analyzing PR changes to determine if UI testing is needed..."
     );
@@ -52,7 +81,7 @@ class ClaudeService {
         return this.fallbackUIDetection(prContext);
       }
 
-      const data = await response.json();
+      const data = await response.json() as ClaudeResponse;
       const result = data.content[0].text.trim().toUpperCase();
 
       core.info(`Claude AI analysis result: ${result}`);
@@ -105,12 +134,12 @@ class ClaudeService {
         return this.fallbackUIDetection(prContext);
       }
     } catch (error) {
-      core.warning(`Error analyzing PR with Claude: ${error.message}`);
+      core.warning(`Error analyzing PR with Claude: ${(error as Error).message}`);
       return this.fallbackUIDetection(prContext);
     }
   }
 
-  async changesRelevantToSitemap(prContext, sitemap) {
+  async changesRelevantToSitemap(prContext: PRContext, sitemap: any): Promise<boolean> {
     core.info(
       "🗺️ Analyzing PR changes against sitemap to determine relevance..."
     );
@@ -142,7 +171,7 @@ class ClaudeService {
         return this.fallbackSitemapRelevance(prContext, sitemap);
       }
 
-      const data = await response.json();
+      const data = await response.json() as ClaudeResponse;
       const result = data.content[0].text.trim().toUpperCase();
 
       core.info(`Sitemap relevance analysis result: ${result}`);
@@ -162,12 +191,12 @@ class ClaudeService {
         return this.fallbackSitemapRelevance(prContext, sitemap);
       }
     } catch (error) {
-      core.warning(`Error analyzing sitemap relevance: ${error.message}`);
+      core.warning(`Error analyzing sitemap relevance: ${(error as Error).message}`);
       return this.fallbackSitemapRelevance(prContext, sitemap);
     }
   }
 
-  fallbackUIDetection(prContext) {
+  fallbackUIDetection(prContext: PRContext): boolean {
     core.info("🔍 Using fallback UI detection...");
 
     core.info(
@@ -219,7 +248,7 @@ class ClaudeService {
     }
   }
 
-  fallbackSitemapRelevance(prContext, sitemap) {
+  fallbackSitemapRelevance(prContext: PRContext, sitemap: any): boolean {
     core.info("🔍 Using fallback sitemap relevance analysis...");
 
     // If there's no sitemap or it's empty, assume changes are relevant
@@ -234,6 +263,7 @@ class ClaudeService {
 
     // Extract all URLs/paths from sitemap structure
     const sitemapPaths = this.extractPathsFromSitemap(sitemap);
+    core.debug(`Found sitemap paths: ${sitemapPaths.join(", ")}`); // Use the variable
 
     // Check if any changed files seem to correspond to sitemap areas
     const changedFiles = prContext.files.map((f) => f.filename);
@@ -261,10 +291,10 @@ class ClaudeService {
     }
   }
 
-  extractPathsFromSitemap(sitemap) {
-    const paths = [];
+  extractPathsFromSitemap(sitemap: any): string[] {
+    const paths: string[] = [];
 
-    const extractFromObject = (obj) => {
+    const extractFromObject = (obj: any): void => {
       if (Array.isArray(obj)) {
         obj.forEach((item) => extractFromObject(item));
       } else if (typeof obj === "object" && obj !== null) {
@@ -279,7 +309,7 @@ class ClaudeService {
     return paths;
   }
 
-  async analyzeAndPlan(prContext) {
+  async analyzeAndPlan(prContext: PRContext): Promise<string> {
     const prompt = this.buildAnalysisPrompt(prContext);
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -308,11 +338,11 @@ class ClaudeService {
       );
     }
 
-    const data = await response.json();
+    const data = await response.json() as ClaudeResponse;
     return data.content[0].text;
   }
 
-  async analyzeNavigationPaths(testPlan, prContext) {
+  async analyzeNavigationPaths(testPlan: string, prContext: PRContext): Promise<string> {
     const prompt = this.buildNavigationPrompt(testPlan, prContext);
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -340,11 +370,11 @@ class ClaudeService {
       );
     }
 
-    const data = await response.json();
+    const data = await response.json() as ClaudeResponse;
     return data.content[0].text;
   }
 
-  async generateQAInstructions(testPlan, prContext, sitemap) {
+  async generateQAInstructions(testPlan: string, prContext: PRContext, sitemap: any): Promise<string> {
     const prompt = this.buildQAInstructionsPrompt(testPlan, prContext, sitemap);
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -373,11 +403,11 @@ class ClaudeService {
       );
     }
 
-    const data = await response.json();
+    const data = await response.json() as ClaudeResponse;
     return data.content[0].text;
   }
 
-  async generateTestCode(testPlan, prContext, navigationPaths) {
+  async generateTestCode(testPlan: string, prContext: PRContext, navigationPaths: string): Promise<string> {
     const prompt = this.buildCodePrompt(testPlan, prContext, navigationPaths);
     console.log("buildCodePrompt", prompt);
 
@@ -407,11 +437,11 @@ class ClaudeService {
       );
     }
 
-    const data = await response.json();
+    const data = await response.json() as ClaudeResponse;
     return IMPORTS + data.content[0].text;
   }
 
-  buildUIAnalysisPrompt(prContext) {
+  buildUIAnalysisPrompt(prContext: PRContext): string {
     return `Analyze the following Pull Request changes and determine if UI testing is necessary.
 
 ## PR Details:
@@ -460,7 +490,7 @@ You are inside of a sandboxed test environment, so you can perform CRUD operatio
 Respond with ONLY "YES" if UI testing is needed, or "NO" if UI testing is not needed. Do not include any explanation.`;
   }
 
-  buildSitemapRelevancePrompt(prContext, sitemap) {
+  buildSitemapRelevancePrompt(prContext: PRContext, sitemap: any): string {
     const sitemapPaths = this.extractPathsFromSitemap(sitemap);
 
     return `Analyze the following Pull Request changes and determine if they affect areas that are ACCESSIBLE through the provided sitemap.
@@ -526,7 +556,7 @@ Determine if the PR changes affect UI/functionality that can be ACCESSED and TES
 Respond with ONLY "YES" if the changes affect areas ACCESSIBLE through the sitemap, or "NO" if the changes are in areas that cannot be reached via the sitemap paths.`;
   }
 
-  buildAnalysisPrompt(prContext) {
+  buildAnalysisPrompt(prContext: PRContext): string {
     const changedFiles = prContext.files
       .filter((file) => file.patch)
       .slice(0, 10);
@@ -565,8 +595,8 @@ ${changedFiles
 ### ${file.filename} (${file.status})
 **Changes**: +${file.additions} -${file.deletions}
 \`\`\`diff
-${file.patch.slice(0, 1500)}${
-      file.patch.length > 1500 ? "\n...(truncated)" : ""
+${file.patch ? file.patch.slice(0, 1500) : "No patch available"}${
+      file.patch && file.patch.length > 1500 ? "\n...(truncated)" : ""
     }
 \`\`\`
 `
@@ -595,7 +625,7 @@ Provide a numbered list of specific test scenarios in plain English. Each test s
 - Include expected outcomes`;
   }
 
-  buildNavigationPrompt(testPlan, prContext) {
+  buildNavigationPrompt(testPlan: string, prContext: PRContext): string {
     const previewUrlsSection =
       prContext.previewUrls.length > 0
         ? `## Base URL:
@@ -646,7 +676,7 @@ Example:
 Provide navigation details for each test in the plan.`;
   }
 
-  buildQAInstructionsPrompt(testPlan, prContext, sitemap) {
+  buildQAInstructionsPrompt(testPlan: string, prContext: PRContext, sitemap: any): string {
     const baseUrl =
       prContext.previewUrls.length > 0
         ? prContext.previewUrls[0]
@@ -695,7 +725,7 @@ For each test scenario, provide:
 Provide comprehensive manual testing instructions based on the test plan and navigation map.`;
   }
 
-  buildCodePrompt(testPlan, prContext, navigationPaths) {
+  buildCodePrompt(testPlan: string, prContext: PRContext, navigationPaths: string): string {
     const authenticationSection =
       process.env.TEST_USER_EMAIL && process.env.TEST_USER_PASSWORD
         ? `
@@ -760,8 +790,8 @@ ${TEST_EXAMPLE}
 ## Requirements:
 1. **Implement each test** from the test plan above
 2. **Use Magnitude syntax** as shown in examples  
-3. **Use \`await agent.extract(query, zodSchema)\`** for checking page state
-4. **Use \`await agent.act(query)\`** for all interactions
+3. **Use \`await agent.extract(query, zodSchema)\` for checking page state
+4. **Use \`await agent.act(query)\` for all interactions
 5. **Include authentication logic** if credentials are provided (use the pattern above)
 6. **Use the navigation paths and instructions** provided above to navigate to the correct URLs for each test
 7. **Navigate to the base URL** and then to specific paths as needed for each test
@@ -774,4 +804,4 @@ Return ONLY the complete, executable test code. No explanations or markdown form
   }
 }
 
-module.exports = ClaudeService;
+export default ClaudeService;

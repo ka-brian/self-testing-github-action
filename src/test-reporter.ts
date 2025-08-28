@@ -1,7 +1,13 @@
-const core = require("@actions/core");
+import * as core from "@actions/core";
+
+interface TestReport {
+  success: boolean;
+  executionSkipped?: boolean;
+  errors?: string[];
+}
 
 class TestReporter {
-  printTestReport(testReport) {
+  printTestReport(testReport: TestReport): void {
     core.info("📊 Test Execution Report:");
     core.info("=".repeat(50));
 
@@ -23,11 +29,11 @@ class TestReporter {
 
     if (testReport.errors && testReport.errors.length > 0) {
       core.info("🔍 Details:");
-      core.info(testReport.errors);
+      core.info(testReport.errors.join("\n"));
     }
 
     core.info("=".repeat(50));
   }
 }
 
-module.exports = TestReporter;
+export default TestReporter;
